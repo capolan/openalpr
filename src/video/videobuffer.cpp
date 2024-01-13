@@ -110,6 +110,7 @@ void imageCollectionThread(void* arg)
 
       // Check if it's a webcam, if so, pass the device ID
       std::string video_prefix = "/dev/video";
+      std::string video_prefix_v4l2 = "/dev/v4l";
       if (startsWith(dispatcher->mjpeg_url, video_prefix))
       {
         std::string device_number_str = dispatcher->mjpeg_url.substr(video_prefix.length());
@@ -117,6 +118,14 @@ void imageCollectionThread(void* arg)
         
         int webcam_number = atoi(device_number_str.c_str());
         cap.open(webcam_number);
+      }
+      else if (startsWith(dispatcher->mjpeg_url, video_prefix_v4l2))
+      {
+        std::string device_number_str = dispatcher->mjpeg_url.substr(video_prefix_v4l2.length());
+        dispatcher->log_info("Opening webcam video device " + device_number_str);
+        
+        int webcam_number = atoi(device_number_str.c_str());
+        cap.open(webcam_number, cv::CAP_V4L2);
       }
       else if (dispatcher->mjpeg_url == "webcam")
       {

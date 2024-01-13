@@ -70,6 +70,10 @@ IF (WIN32 AND WITH_TESTS)
   SET(WITH_TESTS OFF)
 ENDIF()
 
+set(Tesseract_INCLUDE_CCMAIN_DIR "/usr/include/tesseract")
+set(Tesseract_INCLUDE_CCUTIL_DIR "/usr/include/tesseract")
+#MESSAGE(STATUS "Tees: ${Tesseract_LIBRARIES}")
+
 IF(Tesseract_FRAMEWORK_PATH AND Leptonica_FRAMEWORK_PATH) 
   MESSAGE(STATUS "Using Tesseract iOS framework: ${Tesseract_FRAMEWORK_PATH}")
   MESSAGE(STATUS "Using Leptonica iOS framework: ${Leptonica_FRAMEWORK_PATH}")
