@@ -78,13 +78,22 @@ void segfault_handler(int sig) {
   exit(1);
 }
 
+
+bool sigusr1_ok;
+
+void sigusr1_handler(int sig) {
+   sigusr1_ok=true;
+}
+
 bool daemon_active;
 
 static log4cplus::Logger logger;
 
 int main( int argc, const char** argv )
 {
+  sigusr1_ok=false;
   signal(SIGSEGV, segfault_handler);   // install our segfault handler
+  signal(SIGUSR1, sigusr1_handler);   // install our segfault handler
   daemon_active = true;
 
   bool noDaemon = false;
@@ -267,7 +276,7 @@ void processingThread(void* arg)
       LOG4CPLUS_INFO(logger, "Camera " << tdata->camera_id << " processed frame in: " << totalProcessingTime << " ms.");
     }
 
-    if (results.plates.size() > 0) {
+    if (sigusr1_ok || results.plates.size() > 0) {
 
       std::stringstream uuid_ss;
       uuid_ss << tdata->site_id << "-cam" << tdata->camera_id << "-" << getEpochTimeMs();
@@ -278,6 +287,15 @@ void processingThread(void* arg)
         std::stringstream ss;
         ss << tdata->output_image_folder << "/" << uuid << ".jpg";
         cv::imwrite(ss.str(), frame);
+	// CAP
+        const std::string tmp =  std::string{ss.str()};
+        const char* str = tmp.c_str();
+        std::stringstream ln;
+        ln << tdata->output_image_folder << "/alpr_photo.jpg";
+        const std::string tmp2 =  std::string{ln.str()};
+        const char* str2 = tmp2.c_str();
+	unlink(str2);
+        symlink(str,str2);
       }
 
       // Update the JSON content to include UUID and camera ID
@@ -288,6 +306,11 @@ void processingThread(void* arg)
       cJSON_AddStringToObject(root, 	"site_id", 	tdata->site_id.c_str());
       cJSON_AddNumberToObject(root,	"img_width",	frame.cols);
       cJSON_AddNumberToObject(root,	"img_height",	frame.rows);
+      if (sigusr1_ok) {
+         cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_photo")); 
+         sigusr1_ok=false;
+      }
+
 
       // Add the company ID to the output if configured
       if (tdata->company_id.length() > 0)
