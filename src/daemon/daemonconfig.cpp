@@ -49,6 +49,7 @@ DaemonConfig::DaemonConfig(std::string config_file, std::string config_defaults_
   analysis_threads = getInt(&ini, &defaultIni, "daemon", "analysis_threads", 1);
   
   storePlates = getBoolean(&ini, &defaultIni, "daemon", "store_plates", false);
+  markImagePlates = getBoolean(&ini, &defaultIni, "daemon", "mark_image_plate", false);
   imageFolder = getString(&ini, &defaultIni, "daemon", "store_plates_location", "/tmp/");
   uploadData = getBoolean(&ini, &defaultIni, "daemon", "upload_data", false);
   upload_url = getString(&ini, &defaultIni, "daemon", "upload_address", "");

@@ -18,6 +18,7 @@ public:
   int topn;
   int analysis_threads;
   bool storePlates;
+  bool markImagePlates;
   std::string imageFolder;
   bool uploadData;
   std::string upload_url;

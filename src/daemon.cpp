@@ -22,6 +22,9 @@
 #include <log4cplus/consoleappender.h>
 #include <log4cplus/fileappender.h>
 
+#include <opencv2/imgproc.hpp>
+#include <opencv2/core/types.hpp>
+
 using namespace alpr;
 
 // Variables
@@ -57,6 +60,8 @@ struct CaptureThreadData
   std::string country_code;
   std::string pattern;
   bool output_images;
+  // CAP
+  bool mark_image_plate;
   std::string output_image_folder;
   int top_n;
 };
@@ -209,6 +214,7 @@ int main( int argc, const char** argv )
       tdata->stream_url = daemon_config.stream_urls[i];
       tdata->camera_id = i + 1;
       tdata->config_file = openAlprConfigFile;
+      tdata->mark_image_plate = daemon_config.markImagePlates;
       tdata->output_images = daemon_config.storePlates;
       tdata->output_image_folder = daemon_config.imageFolder;
       tdata->country_code = daemon_config.country;
@@ -284,18 +290,35 @@ void processingThread(void* arg)
 
       // Save the image to disk (using the UUID)
       if (tdata->output_images) {
+        // CAP grava placa na foto
+        for (unsigned int i = 0; i < results.plates.size(); i++)
+        {
+           cv::Point pL;
+           // Draw a box around the license plate 
+           for (int z = 0; z < 4; z++)
+           {
+             AlprCoordinate* coords = results.plates[i].plate_points;
+             cv::Point p1(coords[z].x, coords[z].y);
+             cv::Point p2(coords[(z + 1) % 4].x, coords[(z + 1) % 4].y);
+             cv::line(frame, p1, p2, cv::Scalar(10,255,10), 3);
+             pL = p2;
+           }
+           cv::putText(frame,results.plates[i].bestPlate.characters,pL, cv::FONT_HERSHEY_SIMPLEX, 1.5,cv::Scalar(10,255,10),2,cv::LINE_AA);
+        }
         std::stringstream ss;
         ss << tdata->output_image_folder << "/" << uuid << ".jpg";
         cv::imwrite(ss.str(), frame);
 	// CAP
-        const std::string tmp =  std::string{ss.str()};
-        const char* str = tmp.c_str();
-        std::stringstream ln;
-        ln << tdata->output_image_folder << "/alpr_photo.jpg";
-        const std::string tmp2 =  std::string{ln.str()};
-        const char* str2 = tmp2.c_str();
-	unlink(str2);
-        symlink(str,str2);
+        if (sigusr1_ok) {
+           const std::string tmp =  std::string{ss.str()};
+           const char* str = tmp.c_str();
+           std::stringstream ln;
+           ln << tdata->output_image_folder << "/alpr_photo.jpg";
+           const std::string tmp2 =  std::string{ln.str()};
+           const char* str2 = tmp2.c_str();
+           unlink(str2);
+           symlink(str,str2);
+        }
       }
 
       // Update the JSON content to include UUID and camera ID
@@ -306,6 +329,7 @@ void processingThread(void* arg)
       cJSON_AddStringToObject(root, 	"site_id", 	tdata->site_id.c_str());
       cJSON_AddNumberToObject(root,	"img_width",	frame.cols);
       cJSON_AddNumberToObject(root,	"img_height",	frame.rows);
+      // CAP
       if (sigusr1_ok) {
          cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_photo")); 
          sigusr1_ok=false;
