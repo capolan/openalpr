@@ -85,9 +85,14 @@ void segfault_handler(int sig) {
 
 
 bool sigusr1_ok;
+bool sigusr2_ok;
 
 void sigusr1_handler(int sig) {
    sigusr1_ok=true;
+}
+
+void sigusr2_handler(int sig) {
+   sigusr2_ok=true;
 }
 
 bool daemon_active;
@@ -99,6 +104,7 @@ int main( int argc, const char** argv )
   sigusr1_ok=false;
   signal(SIGSEGV, segfault_handler);   // install our segfault handler
   signal(SIGUSR1, sigusr1_handler);   // install our segfault handler
+  signal(SIGUSR2, sigusr2_handler);   // install our segfault handler
   daemon_active = true;
 
   bool noDaemon = false;
@@ -281,8 +287,8 @@ void processingThread(void* arg)
     if (tdata->clock_on) {
       LOG4CPLUS_INFO(logger, "Camera " << tdata->camera_id << " processed frame in: " << totalProcessingTime << " ms.");
     }
-
-    if (sigusr1_ok || results.plates.size() > 0) {
+    // CAP
+    if (sigusr1_ok || sigusr2_ok || results.plates.size() > 0) {
 
       std::stringstream uuid_ss;
       uuid_ss << tdata->site_id << "-cam" << tdata->camera_id << "-" << getEpochTimeMs();
@@ -319,6 +325,16 @@ void processingThread(void* arg)
            unlink(str2);
            symlink(str,str2);
         }
+        if (sigusr2_ok) {
+           const std::string tmp =  std::string{ss.str()};
+           const char* str = tmp.c_str();
+           std::stringstream ln;
+           ln << tdata->output_image_folder << "/alpr_trigger.jpg";
+           const std::string tmp2 =  std::string{ln.str()};
+           const char* str2 = tmp2.c_str();
+           unlink(str2);
+           symlink(str,str2);
+        }
       }
 
       // Update the JSON content to include UUID and camera ID
@@ -333,6 +349,10 @@ void processingThread(void* arg)
       if (sigusr1_ok) {
          cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_photo")); 
          sigusr1_ok=false;
+      }
+      if (sigusr2_ok) {
+         cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_trigger")); 
+         sigusr2_ok=false;
       }
 
 
