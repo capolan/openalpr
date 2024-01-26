@@ -60,10 +60,10 @@ struct CaptureThreadData
   std::string country_code;
   std::string pattern;
   bool output_images;
-  // CAP
   bool mark_image_plate;
   std::string output_image_folder;
   int top_n;
+  int gpio_in;
 };
 
 struct UploadThreadData
@@ -228,6 +228,7 @@ int main( int argc, const char** argv )
       tdata->site_id = daemon_config.site_id;
       tdata->analysis_threads = daemon_config.analysis_threads;
       tdata->top_n = daemon_config.topn;
+      tdata->gpio_in = daemon_config.gpio_in;
       tdata->pattern = daemon_config.pattern;
       tdata->clock_on = clockOn;
       
@@ -296,7 +297,9 @@ void processingThread(void* arg)
 
       // Save the image to disk (using the UUID)
       if (tdata->output_images) {
+
         // CAP grava placa na foto
+        if ( tdata->mark_image_plate) {
         for (unsigned int i = 0; i < results.plates.size(); i++)
         {
            cv::Point pL;
@@ -311,6 +314,8 @@ void processingThread(void* arg)
            }
            cv::putText(frame,results.plates[i].bestPlate.characters,pL, cv::FONT_HERSHEY_SIMPLEX, 1.5,cv::Scalar(10,255,10),2,cv::LINE_AA);
         }
+        }
+
         std::stringstream ss;
         ss << tdata->output_image_folder << "/" << uuid << ".jpg";
         cv::imwrite(ss.str(), frame);
@@ -324,6 +329,7 @@ void processingThread(void* arg)
            const char* str2 = tmp2.c_str();
            unlink(str2);
            symlink(str,str2);
+           LOG4CPLUS_INFO(logger, "SIGUSR1 foto");
         }
         if (sigusr2_ok) {
            const std::string tmp =  std::string{ss.str()};
@@ -334,6 +340,7 @@ void processingThread(void* arg)
            const char* str2 = tmp2.c_str();
            unlink(str2);
            symlink(str,str2);
+           LOG4CPLUS_INFO(logger, "SIGUSR2 trigger");
         }
       }
 

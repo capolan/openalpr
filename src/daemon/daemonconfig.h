@@ -16,6 +16,7 @@ public:
   std::string country;
   
   int topn;
+  int gpio_in;
   int analysis_threads;
   bool storePlates;
   bool markImagePlates;
