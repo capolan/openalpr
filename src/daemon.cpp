@@ -1,8 +1,11 @@
-
+#define DEBUG_CAP
 
 #include <unistd.h>
+#include <inttypes.h>
+#include <sys/syscall.h>
 #include <sstream>
 #include <execinfo.h>
+#include <lgpio.h>
 
 #include "daemon/beanstalk.hpp"
 #include "video/logging_videobuffer.h"
@@ -24,6 +27,7 @@
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/types.hpp>
+
 
 using namespace alpr;
 
@@ -71,10 +75,26 @@ struct UploadThreadData
   std::string upload_url;
 };
 
+bool daemon_active;
+
+static log4cplus::Logger logger;
+/*---------------INTERRUPT-----------------------------*/
+int handleGPIO=-1;
+int levelGPIO=-1;
+int triggerGPIO=0;
+bool sigusr1_ok;
+bool sigusr2_ok;
+
+#ifdef DEBUG_CAP
+uint totalFrame=0;
+#endif
+
 void segfault_handler(int sig) {
   void *array[10];
   size_t size;
 
+  // CAP
+  if (handleGPIO>=0) lgGpiochipClose(handleGPIO);
   // get void*'s for all entries on the stack
   size = backtrace(array, 10);
 
@@ -84,8 +104,58 @@ void segfault_handler(int sig) {
 }
 
 
-bool sigusr1_ok;
-bool sigusr2_ok;
+/* CAP  GPIO interrupt */
+void callback_GPIO(int e, lgGpioAlert_p evt, void *data)
+{
+   int i;
+   int userdata = *(int*)data;
+
+   char str[100];
+
+   int level_old = levelGPIO;
+   for (i=0; i<e; i++)
+   {
+//      sprintf((char*)str, "u=%d t=%"PRIu64" c=%d g=%d l=%d f=%d (%d of %d)\n",
+//         userdata, evt[i].report.timestamp, evt[i].report.chip,
+//         evt[i].report.gpio, evt[i].report.level,
+//         evt[i].report.flags, i+1, e);
+    LOG4CPLUS_INFO(logger, "INT ts:" <<  evt[i].report.timestamp << 
+		" gpio:" << (int) evt[i].report.gpio <<
+		" level:" <<  (int)evt[i].report.level);
+	levelGPIO=(int)evt[i].report.level;
+   }
+   if (level_old != levelGPIO) {
+      sigusr2_ok = true;
+   }
+}
+
+int init_GPIO(int pin)
+{
+ static int userdata=456;
+ if (pin == 0) {
+   LOG4CPLUS_INFO(logger, "GPIO desativado.");
+   return 0;
+ }
+
+ handleGPIO = lgGpiochipOpen(0);
+
+   if (handleGPIO < 0) { 
+      LOG4CPLUS_ERROR(logger, "Failed open GPIO " <<  lguErrorText(handleGPIO) << " id=" << handleGPIO);
+       return -1;
+   }
+   levelGPIO = lgGpioRead(handleGPIO, pin);
+   LOG4CPLUS_INFO(logger, "Init GPIO" << (int)pin << " level:" << (int)levelGPIO);
+
+   lgGpioSetSamplesFunc(callback_GPIO, &userdata);
+
+   lgGpioSetDebounce(handleGPIO, pin, 50 * 1000);
+   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, pin, -1);
+//   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, 24, -1);
+//   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, 17, -1);
+//   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, 27, -1);
+   return 0;
+}
+
 
 void sigusr1_handler(int sig) {
    sigusr1_ok=true;
@@ -95,9 +165,7 @@ void sigusr2_handler(int sig) {
    sigusr2_ok=true;
 }
 
-bool daemon_active;
-
-static log4cplus::Logger logger;
+/*-----------------------------------------------------*/
 
 int main( int argc, const char** argv )
 {
@@ -232,6 +300,7 @@ int main( int argc, const char** argv )
       tdata->pattern = daemon_config.pattern;
       tdata->clock_on = clockOn;
       
+      init_GPIO(tdata->gpio_in);
       tthread::thread* thread_recognize = new tthread::thread(streamRecognitionThread, (void*) tdata);
       threads.push_back(thread_recognize);
       
@@ -249,9 +318,10 @@ int main( int argc, const char** argv )
     }
     // Parent process will continue and spawn more children
   }
-
+  LOG4CPLUS_INFO(logger, ">>>> pid:" << getpid());
   while (daemon_active)
     alpr::sleep_ms(30);
+  LOG4CPLUS_INFO(logger, "<<<<");
 
   for (uint16_t i = 0; i < threads.size(); i++)
     delete threads[i];
@@ -260,6 +330,10 @@ int main( int argc, const char** argv )
 }
 
 
+#ifdef DEBUG_CAP
+int64_t s1=0,s0=0;
+#endif
+
 void processingThread(void* arg)
 {
   CaptureThreadData* tdata = (CaptureThreadData*) arg;
@@ -267,7 +341,26 @@ void processingThread(void* arg)
   alpr.setTopN(tdata->top_n);
   alpr.setDefaultRegion(tdata->pattern);
 
+#ifdef DEBUG_CAP
+  if (s0==0) s0=s1=getEpochTimeMs();
+  pid_t x = syscall(__NR_gettid);
+  LOG4CPLUS_INFO(logger, "Frame start pid:" <<getpid() << "  thr:" << x);
+#endif
+
   while (daemon_active) {
+
+#ifdef DEBUG_CAP
+    if ((++totalFrame % 1000) == 0)
+    {
+       int64_t s2 = getEpochTimeMs();
+       int64_t s = s2 - s1;
+       s = s / 1000;
+       int64_t ss = s2 - s0;
+       ss = ss / 1000 ;
+       LOG4CPLUS_INFO(logger, "Frame " << s  << " tot:" << ss << "/" << totalFrame<< " thr:" << x);
+       s1 = s2;
+    }
+#endif
 
     // Wait for a new frame
     cv::Mat frame = framesQueue.pop();
@@ -340,7 +433,7 @@ void processingThread(void* arg)
            const char* str2 = tmp2.c_str();
            unlink(str2);
            symlink(str,str2);
-           LOG4CPLUS_INFO(logger, "SIGUSR2 trigger");
+           LOG4CPLUS_INFO(logger, "SIGUSR2 trigger level:" << levelGPIO);
         }
       }
 
@@ -357,9 +450,15 @@ void processingThread(void* arg)
          cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_photo")); 
          sigusr1_ok=false;
       }
+      if (tdata->gpio_in > 0) {
+         levelGPIO = lgGpioRead(handleGPIO, tdata->gpio_in);
+         cJSON_AddNumberToObject(root, 	"levelGPIO", levelGPIO);
+         cJSON_AddNumberToObject(root, 	"triggerGPIO", triggerGPIO);
+      }
       if (sigusr2_ok) {
          cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_trigger")); 
          sigusr2_ok=false;
+	 triggerGPIO=0;
       }
 
 
