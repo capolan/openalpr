@@ -47,6 +47,7 @@ DaemonConfig::DaemonConfig(std::string config_file, std::string config_defaults_
   country = getString(&ini, &defaultIni, "daemon", "country", "us");
   topn = getInt(&ini, &defaultIni, "daemon", "topn", 20);
   gpio_in = getInt(&ini, &defaultIni, "daemon", "gpio_in", 0);
+  gpio_out = getInt(&ini, &defaultIni, "daemon", "gpio_out", 0);
   analysis_threads = getInt(&ini, &defaultIni, "daemon", "analysis_threads", 1);
   
   storePlates = getBoolean(&ini, &defaultIni, "daemon", "store_plates", false);

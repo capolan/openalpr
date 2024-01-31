@@ -18,6 +18,9 @@
 */
 
 #include "videobuffer.h"
+#include <filesystem>
+#include <fstream>
+#include <unistd.h>
 
 using namespace alpr;
 
@@ -139,6 +142,7 @@ void imageCollectionThread(void* arg)
       if (cap.isOpened())
       {
         dispatcher->log_info("Video stream connected");
+        std::filesystem::remove("/tmp/videoerr.txt");
         getALPRImages(cap, dispatcher);
       }
       else
@@ -146,6 +150,15 @@ void imageCollectionThread(void* arg)
 	std::stringstream ss;
 	ss << "Stream " << dispatcher->mjpeg_url << " failed to open.";
 	dispatcher->log_error(ss.str());
+	struct stat buf;
+    	if (stat("/tmp/videoerr.txt", &buf) == -1)
+    	{
+           std::ofstream f;
+	   f.open("/tmp/videoerr.txt");
+           std::time_t t = std::time(nullptr);
+           f << t << " err";
+           f.close();
+    	}
       }
 
     }

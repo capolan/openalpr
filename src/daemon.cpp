@@ -4,8 +4,12 @@
 #include <inttypes.h>
 #include <sys/syscall.h>
 #include <sstream>
+#include <iostream>
 #include <execinfo.h>
 #include <lgpio.h>
+#include <filesystem>
+#include <fstream>
+
 
 #include "daemon/beanstalk.hpp"
 #include "video/logging_videobuffer.h"
@@ -68,6 +72,7 @@ struct CaptureThreadData
   std::string output_image_folder;
   int top_n;
   int gpio_in;
+  int gpio_out;
 };
 
 struct UploadThreadData
@@ -78,10 +83,24 @@ struct UploadThreadData
 bool daemon_active;
 
 static log4cplus::Logger logger;
+
+// Get current date/time, format is YYYY-MM-DD.HH:mm:ss
+const std::string currentDateTime() {
+    time_t     now = time(0);
+    struct tm  tstruct;
+    char       buf[80];
+    tstruct = *localtime(&now);
+    // Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+    // for more information about date/time format
+    strftime(buf, sizeof(buf), "%Y-%m-%d %X", &tstruct);
+
+    return buf;
+}
 /*---------------INTERRUPT-----------------------------*/
 int handleGPIO=-1;
 int levelGPIO=-1;
 int triggerGPIO=0;
+int pin_out=0;
 bool sigusr1_ok;
 bool sigusr2_ok;
 
@@ -129,27 +148,37 @@ void callback_GPIO(int e, lgGpioAlert_p evt, void *data)
    }
 }
 
-int init_GPIO(int pin)
+int init_GPIO(int pin_in, int pin_out)
 {
- static int userdata=456;
- if (pin == 0) {
-   LOG4CPLUS_INFO(logger, "GPIO desativado.");
-   return 0;
- }
-
- handleGPIO = lgGpiochipOpen(0);
-
+   static int userdata=456;
+   int i;
+   handleGPIO = lgGpiochipOpen(0);
    if (handleGPIO < 0) { 
       LOG4CPLUS_ERROR(logger, "Failed open GPIO " <<  lguErrorText(handleGPIO) << " id=" << handleGPIO);
        return -1;
    }
-   levelGPIO = lgGpioRead(handleGPIO, pin);
-   LOG4CPLUS_INFO(logger, "Init GPIO" << (int)pin << " level:" << (int)levelGPIO);
+   if (pin_out > 0) {
+      i = lgGpioClaimOutput(handleGPIO, 0, pin_out, 1);
+      if (i < 0) {
+         LOG4CPLUS_INFO(logger, "GPIO err output:" << i);
+      }
+      pin_out=1;
+   }
+   if (pin_in == 0) {
+     LOG4CPLUS_INFO(logger, "GPIO trigger in desativado.");
+     return 0;
+   }
+   i = lgGpioClaimInput(handleGPIO, 0, pin_in);
+   if (i < 0) {
+         LOG4CPLUS_INFO(logger, "GPIO err input:" << i);
+   }
+   levelGPIO = lgGpioRead(handleGPIO, pin_in);
+   LOG4CPLUS_INFO(logger, "Init GPIO" << (int)pin_out << "out GPIO" << (int)pin_in << " level:" << (int)levelGPIO);
 
    lgGpioSetSamplesFunc(callback_GPIO, &userdata);
 
-   lgGpioSetDebounce(handleGPIO, pin, 50 * 1000);
-   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, pin, -1);
+   lgGpioSetDebounce(handleGPIO, pin_in, 50 * 1000);
+   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, pin_in, -1);
 //   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, 24, -1);
 //   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, 17, -1);
 //   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, 27, -1);
@@ -163,6 +192,17 @@ void sigusr1_handler(int sig) {
 
 void sigusr2_handler(int sig) {
    sigusr2_ok=true;
+}
+
+struct Tled {
+ int pin;
+ int val;
+};
+
+void processLed(void *arg) {
+   Tled *dat = (Tled*) arg;
+   LOG4CPLUS_INFO(logger, "ThreadLed  " << (int)dat->pin << " level:" << (int)dat->val);
+// tthread::thread* t = new tthread::thread(processingThread, (void*) tdata);
 }
 
 /*-----------------------------------------------------*/
@@ -232,6 +272,10 @@ int main( int argc, const char** argv )
     return 1;
   }
   
+  if (fileExists("/tmp/videoerr.txt")) {
+     std::filesystem::remove("/tmp/videoerr.txt");
+  }
+
   log4cplus::BasicConfigurator config;
   config.configure();
     
@@ -248,7 +292,7 @@ int main( int argc, const char** argv )
     logger.addAppender(myAppender);
     
     
-    LOG4CPLUS_INFO(logger, "Running OpenALPR daemon in daemon mode.");
+    LOG4CPLUS_INFO(logger, "Running OpenALPR daemon in daemon mode. " << currentDateTime());
   }
   else
   {
@@ -258,7 +302,7 @@ int main( int argc, const char** argv )
     logger = log4cplus::Logger::getInstance(LOG4CPLUS_TEXT("alprd"));
     //logger.addAppender(myAppender);
     
-    LOG4CPLUS_INFO(logger, "Running OpenALPR daemon in the foreground.");
+    LOG4CPLUS_INFO(logger, "Running OpenALPR daemon in the foreground. " << currentDateTime());
   }
   
   LOG4CPLUS_INFO(logger, "Using: " << daemonConfigFile << " for daemon configuration");
@@ -297,10 +341,11 @@ int main( int argc, const char** argv )
       tdata->analysis_threads = daemon_config.analysis_threads;
       tdata->top_n = daemon_config.topn;
       tdata->gpio_in = daemon_config.gpio_in;
+      tdata->gpio_out = daemon_config.gpio_out;
       tdata->pattern = daemon_config.pattern;
       tdata->clock_on = clockOn;
       
-      init_GPIO(tdata->gpio_in);
+      init_GPIO(tdata->gpio_in, tdata->gpio_out);
       tthread::thread* thread_recognize = new tthread::thread(streamRecognitionThread, (void*) tdata);
       threads.push_back(thread_recognize);
       
@@ -350,14 +395,17 @@ void processingThread(void* arg)
   while (daemon_active) {
 
 #ifdef DEBUG_CAP
-    if ((++totalFrame % 1000) == 0)
+    if ((++totalFrame % 1000) == 0 || sigusr1_ok || sigusr2_ok)
     {
        int64_t s2 = getEpochTimeMs();
        int64_t s = s2 - s1;
        s = s / 1000;
        int64_t ss = s2 - s0;
        ss = ss / 1000 ;
-       LOG4CPLUS_INFO(logger, "Frame " << s  << " tot:" << ss << "/" << totalFrame<< " thr:" << x);
+
+       // https://stackoverflow.com/questions/6012663/get-unix-timestamp-with-c
+       std::time_t t = std::time(nullptr);
+       LOG4CPLUS_INFO(logger, "Frame " << s  << " sec tot:" << totalFrame << "frame/" << ss<< "sec thr:" << x << " " << currentDateTime() << " (" << t << ")"); 
        s1 = s2;
     }
 #endif
@@ -423,7 +471,9 @@ void processingThread(void* arg)
            unlink(str2);
            symlink(str,str2);
            LOG4CPLUS_INFO(logger, "SIGUSR1 foto");
-        }
+           lgGpioWrite(handleGPIO, tdata->gpio_out, 1);
+           pin_out=1;
+        } else
         if (sigusr2_ok) {
            const std::string tmp =  std::string{ss.str()};
            const char* str = tmp.c_str();
@@ -434,6 +484,12 @@ void processingThread(void* arg)
            unlink(str2);
            symlink(str,str2);
            LOG4CPLUS_INFO(logger, "SIGUSR2 trigger level:" << levelGPIO);
+           lgGpioWrite(handleGPIO, tdata->gpio_out, 1);
+           pin_out=1;
+        } else
+        if (tdata->gpio_out > 0 && pin_out) {
+           lgGpioWrite(handleGPIO, tdata->gpio_out, 0);
+           pin_out=0;
         }
       }
 

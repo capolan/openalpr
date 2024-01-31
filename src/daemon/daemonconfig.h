@@ -17,6 +17,7 @@ public:
   
   int topn;
   int gpio_in;
+  int gpio_out;
   int analysis_threads;
   bool storePlates;
   bool markImagePlates;
