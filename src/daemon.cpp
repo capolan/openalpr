@@ -7,9 +7,7 @@
 #include <iostream>
 #include <execinfo.h>
 #include <lgpio.h>
-#include <filesystem>
 #include <fstream>
-
 
 #include "daemon/beanstalk.hpp"
 #include "video/logging_videobuffer.h"
@@ -31,7 +29,6 @@
 
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/types.hpp>
-
 
 using namespace alpr;
 
@@ -273,7 +270,9 @@ int main( int argc, const char** argv )
   }
   
   if (fileExists("/tmp/videoerr.txt")) {
-     std::filesystem::remove("/tmp/videoerr.txt");
+//     std::filesystem::remove("/tmp/videoerr.txt");
+//     fs::remove("/tmp/videoerr.txt");
+     remove("/tmp/videoerr.txt");
   }
 
   log4cplus::BasicConfigurator config;

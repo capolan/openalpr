@@ -123,6 +123,7 @@ OpenALPR requires the following additional libraries:
 
     - Tesseract OCR v3.0.4 (https://github.com/tesseract-ocr/tesseract)
     - OpenCV v2.4.8+ (http://opencv.org/)
+    - lg library (https://abyz.me.uk/lg/)   distro/lg.zip
 
 After cloning this GitHub repository, you should download and extract Tesseract and OpenCV source code into their own directories.  Compile both libraries.
 
