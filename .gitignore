@@ -48,6 +48,6 @@ Release/
 
 # JetBrains IDEA / PyCharm
 .idea/
-
+src/.vscode/
 
 cmake_install.cmake

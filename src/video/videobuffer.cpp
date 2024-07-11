@@ -22,6 +22,8 @@
 #include <fstream>
 #include <unistd.h>
 
+extern int directoryInit (std::string mjpeg_dir, VideoDispatcher* dispatcher);
+
 using namespace alpr;
 
 void imageCollectionThread(void* arg);
@@ -101,9 +103,21 @@ void VideoBuffer::disconnect()
 
 void imageCollectionThread(void* arg)
 {
-  
+  bool isDir = false;
   VideoDispatcher* dispatcher = (VideoDispatcher*) arg;
 
+  if (startsWith(dispatcher->mjpeg_url, "dir:"))
+  {
+      std::string dir_str = dispatcher->mjpeg_url.substr(4, std::string::npos);
+      dispatcher->log_info("Looking dir " + dir_str);
+      directoryInit (dir_str, dispatcher);
+      isDir=true;
+  }
+ 
+  if (isDir) 
+  {
+     return;
+  }
   while (dispatcher->active)
   {
     try

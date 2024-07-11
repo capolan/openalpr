@@ -411,7 +411,9 @@ void processingThread(void* arg)
 
     // Wait for a new frame
     cv::Mat frame = framesQueue.pop();
-
+#ifdef DEBUG_CAP
+  LOG4CPLUS_INFO(logger, "POP thr:" << x);
+#endif
     // Process new frame
     timespec startTime;
     getTimeMonotonic(&startTime);

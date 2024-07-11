@@ -2,6 +2,7 @@
 
 set(video_source_files
  videobuffer.cpp
+ framebuffer.cpp
 
 )
 
