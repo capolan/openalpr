@@ -71,7 +71,6 @@ static int event_mask =
 
 /* Array of directories being monitored */
 static monitored_t *monitors;
-static int n_monitors;
 
 // END Inotify
 
@@ -127,20 +126,12 @@ __event_process(struct inotify_event *event, VideoDispatcher *dispatcher)
   int i;
   static char lastFile[100];
   char* str = (char *)lastFile;
-  /* Need to loop all registered monitors to find the one corresponding to the
-   * watch descriptor in the event. A hash table here would be quite a better
-   * approach. */
-  for (i = 0; i < n_monitors; ++i)
-  {
     /* If watch descriptors match, we found our directory */
-    if (monitors[i].wd == event->wd)
+    if (monitors->wd == event->wd)
     {
       const char *ext=get_filename_ext(event->name);
-      if (ext == NULL) continue;
-      if (strcmp(ext,"jpg") && strcmp(ext,"jpeg") && strcmp(ext,"png")) continue;
-      char *pos = strstr(event->name, "part");
-      if (pos != NULL)
-        continue;
+      if (ext == NULL) return;
+      if (strcmp(ext,"jpg") && strcmp(ext,"jpeg") && strcmp(ext,"png")) return;
 /*
       if (event->len > 0)
         printf("Received event in '%s/%s': ",
@@ -158,7 +149,7 @@ __event_process(struct inotify_event *event, VideoDispatcher *dispatcher)
           sprintf ((char*)str1, "%s event_mask: %d", event->name, event_mask);
           dispatcher->log_info(str1);
           sleep_ms(20);
-          sprintf((char*)str1, "%s/%s", monitors[i].path, event->name);
+          sprintf((char*)str1, "%s/%s", monitors->path, event->name);
           getALPRFrames((char*)str1, dispatcher);
           strcpy(lastFile, event->name);
         }
@@ -170,7 +161,7 @@ __event_process(struct inotify_event *event, VideoDispatcher *dispatcher)
       }
       return;
     }
-  }
+  
 }
 
 static void
@@ -178,11 +169,8 @@ __shutdown_inotify(int inotify_fd)
 {
   int i;
 
-  for (i = 0; i < n_monitors; ++i)
-  {
-    free(monitors[i].path);
-    inotify_rm_watch(inotify_fd, monitors[i].wd);
-  }
+  free(monitors->path);
+  inotify_rm_watch(inotify_fd, monitors->wd);
   free(monitors);
   close(inotify_fd);
 }
@@ -197,31 +185,24 @@ __initialize_inotify(std::string mjpeg_dir, VideoDispatcher *dispatcher)
   /* Create new inotify device */
   if ((inotify_fd = inotify_init()) < 0)
   {
-    sprintf ((char*)str, "Couldn't setup new inotify device: '%s'\n", strerror(errno));
+    sprintf ((char*)str, "Couldn't setup new inotify device: '%s'", strerror(errno));
     dispatcher->log_error(str);
     return -1;
   }
 
   /* Allocate array of monitor setups */
-  n_monitors = 1;
-  monitors = (monitored_t *)malloc(n_monitors * sizeof(monitored_t));
+  monitors = (monitored_t *)malloc(sizeof (monitored_t));
 
   /* Loop all input directories, setting up watches */
-  for (i = 0; i < n_monitors; ++i)
-  {
-    monitors[i].path = strdup(mjpeg_dir.c_str());
-    if ((monitors[i].wd = inotify_add_watch(inotify_fd,
-                                            monitors[i].path,
-                                            event_mask)) < 0)
+    monitors->path = strdup(mjpeg_dir.c_str());
+    if ((monitors->wd = inotify_add_watch(inotify_fd, monitors->path, event_mask)) < 0)
     {
-      sprintf ((char*)str, "Couldn't add monitor in directory '%s': '%s'\n", monitors[i].path, strerror(errno));
+      sprintf ((char*)str, "Couldn't add monitor in directory '%s': '%s'", monitors->path, strerror(errno));
       dispatcher->log_error(str);
       exit(EXIT_FAILURE);
     }
-    sprintf ((char*)str, "Started monitoring directory '%s'...\n", monitors[i].path);
+    sprintf ((char*)str, "Started monitoring directory '%s'...", monitors->path);
     dispatcher->log_info(str);
-
-  }
 
   return inotify_fd;
 }
