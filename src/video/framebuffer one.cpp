@@ -65,30 +65,27 @@ static int Xevent_mask =
      IN_MOVED_TO);      /* File moved into the directory */
 
 static int event_mask =
-    (IN_ATTRIB |      /* File attributes changed */
-     IN_CLOSE_WRITE | /* Writtable File closed */
-     IN_MODIFY);      /* File modified */
+    (IN_ATTRIB |        /* File attributes changed */
+     IN_CLOSE_WRITE |   /* Writtable File closed */
+     IN_MODIFY );        /* File modified */
 
 /* Array of directories being monitored */
 static monitored_t *monitors;
-static int n_monitors;
 
 // END Inotify
 
 using namespace alpr;
 
-const char *get_filename_ext(char *filename)
-{
-  const char *dot = strrchr(filename, '.');
-  if (!dot || dot == filename)
-    return NULL;
-  return dot + 1;
+const char *get_filename_ext(char *filename) {
+    const char *dot = strrchr(filename, '.');
+    if(!dot || dot == filename) return NULL;
+    return dot + 1;
 }
 
 void getALPRFrames(char *imagePath, VideoDispatcher *dispatcher)
 {
 
-  // dispatcher->log_info(">getALPRFrames");
+  //dispatcher->log_info(">getALPRFrames");
   bool hasImage = true;
   try
   {
@@ -128,53 +125,43 @@ __event_process(struct inotify_event *event, VideoDispatcher *dispatcher)
 {
   int i;
   static char lastFile[100];
-  char *str = (char *)lastFile;
-  /* Need to loop all registered monitors to find the one corresponding to the
-   * watch descriptor in the event. A hash table here would be quite a better
-   * approach. */
-  for (i = 0; i < n_monitors; ++i)
-  {
+  char* str = (char *)lastFile;
     /* If watch descriptors match, we found our directory */
-    if (monitors[i].wd == event->wd)
+    if (monitors->wd == event->wd)
     {
-      const char *ext = get_filename_ext(event->name);
-      if (ext == NULL)
-        continue;
-      if (strcmp(ext, "jpg") && strcmp(ext, "jpeg") && strcmp(ext, "png"))
-        continue;
-      char *pos = strstr(event->name, "part");
-      if (pos != NULL)
-        continue;
-      /*
-            if (event->len > 0)
-              printf("Received event in '%s/%s': ",
-                     monitors[i].path,
-                     event->name);
-            else
-              printf("Received event in '%s': ",
-                     monitors[i].path);
-      */
+      const char *ext=get_filename_ext(event->name);
+      if (ext == NULL) return;
+      if (strcmp(ext,"jpg") && strcmp(ext,"jpeg") && strcmp(ext,"png")) return;
+/*
+      if (event->len > 0)
+        printf("Received event in '%s/%s': ",
+               monitors[i].path,
+               event->name);
+      else
+        printf("Received event in '%s': ",
+               monitors[i].path);
+*/
       if (event->mask & (IN_CLOSE_WRITE | IN_MODIFY | IN_ATTRIB))
       {
         char str1[100];
-        if (strcmp((char *)lastFile, event->name))
+        if (strcmp((char*)lastFile, event->name))
         {
-          sprintf((char *)str1, "%s event_mask: %d", event->name, event_mask);
+          sprintf ((char*)str1, "%s event_mask: %d", event->name, event_mask);
           dispatcher->log_info(str1);
           sleep_ms(20);
-          sprintf((char *)str1, "%s/%s", monitors[i].path, event->name);
-          getALPRFrames((char *)str1, dispatcher);
+          sprintf((char*)str1, "%s/%s", monitors->path, event->name);
+          getALPRFrames((char*)str1, dispatcher);
           strcpy(lastFile, event->name);
         }
         else
         {
-          sprintf((char *)str1, "%s DUP", event->name);
+          sprintf ((char*)str1, "%s DUP", event->name);
           dispatcher->log_info(str1);
         }
       }
       return;
     }
-  }
+  
 }
 
 static void
@@ -182,11 +169,8 @@ __shutdown_inotify(int inotify_fd)
 {
   int i;
 
-  for (i = 0; i < n_monitors; ++i)
-  {
-    free(monitors[i].path);
-    inotify_rm_watch(inotify_fd, monitors[i].wd);
-  }
+  free(monitors->path);
+  inotify_rm_watch(inotify_fd, monitors->wd);
   free(monitors);
   close(inotify_fd);
 }
@@ -201,50 +185,24 @@ __initialize_inotify(std::string mjpeg_dir, VideoDispatcher *dispatcher)
   /* Create new inotify device */
   if ((inotify_fd = inotify_init()) < 0)
   {
-    sprintf((char *)str, "Couldn't setup new inotify device: '%s'\n", strerror(errno));
+    sprintf ((char*)str, "Couldn't setup new inotify device: '%s'", strerror(errno));
     dispatcher->log_error(str);
     return -1;
   }
-  n_monitors = 0;
-  for (int i = 0; mjpeg_dir[i]; i++)
-  {
-    if (mjpeg_dir[i] == ';')
-      n_monitors++;
-  }
-  n_monitors++;
+
   /* Allocate array of monitor setups */
-  monitors = (monitored_t *)malloc(n_monitors * sizeof(monitored_t));
+  monitors = (monitored_t *)malloc(sizeof (monitored_t));
 
   /* Loop all input directories, setting up watches */
-  // const char *mjpeg_str = mjpeg_dir.c_str();
-  char *p = (char *)mjpeg_dir.c_str();
-  char *f;
-  for (i = 0; i < n_monitors; ++i)
-  {
-    // Pega diretório da lista de diretório, separador ;
-    for (int j = 0; j < i; j++)
+    monitors->path = strdup(mjpeg_dir.c_str());
+    if ((monitors->wd = inotify_add_watch(inotify_fd, monitors->path, event_mask)) < 0)
     {
-      p = (char *)strchr(p, ';');
-      p++;
-    }
-    f = (char *)strchr(p, ';');
-    if (f != NULL)
-      *f = '\0';
-    monitors[i].path = strdup(p);
-    if (f != NULL)
-      *f = ';';
-
-    if ((monitors[i].wd = inotify_add_watch(inotify_fd,
-                                            monitors[i].path,
-                                            event_mask)) < 0)
-    {
-      sprintf((char *)str, "Couldn't add monitor in directory '%s': '%s'", monitors[i].path, strerror(errno));
+      sprintf ((char*)str, "Couldn't add monitor in directory '%s': '%s'", monitors->path, strerror(errno));
       dispatcher->log_error(str);
       exit(EXIT_FAILURE);
     }
-    sprintf((char *)str, "Started monitoring directory '%s'...", monitors[i].path);
+    sprintf ((char*)str, "Started monitoring directory '%s'...", monitors->path);
     dispatcher->log_info(str);
-  }
 
   return inotify_fd;
 }
@@ -269,7 +227,7 @@ __initialize_signals(VideoDispatcher *dispatcher)
 
   if (sigprocmask(SIG_BLOCK, &sigmask, NULL) < 0)
   {
-    sprintf((char *)str, "Couldn't block signals: %s", strerror(errno));
+    sprintf ((char*)str, "Couldn't block signals: %s", strerror(errno));
     dispatcher->log_error(str);
     return -1;
   }
@@ -277,7 +235,7 @@ __initialize_signals(VideoDispatcher *dispatcher)
   /* Get new FD to read signals from it */
   if ((signal_fd = signalfd(-1, &sigmask, 0)) < 0)
   {
-    sprintf((char *)str, "Couldn't setup signal FD: %s", strerror(errno));
+    sprintf ((char*)str, "Couldn't setup signal FD: %s", strerror(errno));
     dispatcher->log_error(str);
     return -1;
   }
@@ -321,7 +279,7 @@ int directoryInit(std::string mjpeg_dir, VideoDispatcher *dispatcher)
       int rPoll = poll(fds, FD_POLL_MAX, -1);
       if (rPoll < 0)
       {
-        sprintf((char *)str, "Couldn't poll(): %s", strerror(errno));
+        sprintf ((char*)str, "Couldn't poll(): %s", strerror(errno));
         dispatcher->log_error(str);
         exit(EXIT_FAILURE);
       }
