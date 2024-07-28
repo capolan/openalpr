@@ -307,6 +307,8 @@ namespace alpr
     detectorFile = getString(ini, "", "detector_file", "");
     
     ocrLanguage = getString(ini, "", "ocr_language", "none");
+    // CAP restringe padrão placa BR se =1
+    ocrLanguageBr = getInt(ini, "", "ocr_language_br", 0);
 
     postProcessRegexLetters = getString(ini, "", "postprocess_regex_letters", "\\pL");
     postProcessRegexNumbers = getString(ini, "", "postprocess_regex_numbers", "\\pN");

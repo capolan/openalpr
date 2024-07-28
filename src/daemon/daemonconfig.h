@@ -21,6 +21,7 @@ public:
   int analysis_threads;
   bool storePlates;
   bool markImagePlates;
+  bool removeImagePlatesFile;
   std::string imageFolder;
   bool uploadData;
   std::string upload_url;

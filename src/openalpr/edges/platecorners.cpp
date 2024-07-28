@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "platecorners.h"
 
@@ -25,8 +25,7 @@ using namespace std;
 namespace alpr
 {
 
-  PlateCorners::PlateCorners(Mat inputImage, PlateLines* plateLines, PipelineData* pipelineData, vector<TextLine> textLines) :
-      tlc(textLines)
+  PlateCorners::PlateCorners(Mat inputImage, PlateLines *plateLines, PipelineData *pipelineData, vector<TextLine> textLines) : tlc(textLines)
   {
     this->pipelineData = pipelineData;
 
@@ -39,8 +38,6 @@ namespace alpr
 
     this->bestHorizontalScore = 9999999999999;
     this->bestVerticalScore = 9999999999999;
-
-
   }
 
   PlateCorners::~PlateCorners()
@@ -63,7 +60,8 @@ namespace alpr
     {
       for (int h2 = NO_LINE; h2 < horizontalLines; h2++)
       {
-        if (h1 == h2 && h1 != NO_LINE) continue;
+        if (h1 == h2 && h1 != NO_LINE)
+          continue;
 
         this->scoreHorizontals(h1, h2);
       }
@@ -74,7 +72,8 @@ namespace alpr
     {
       for (int v2 = NO_LINE; v2 < verticalLines; v2++)
       {
-        if (v1 == v2 && v1 != NO_LINE) continue;
+        if (v1 == v2 && v1 != NO_LINE)
+          continue;
 
         this->scoreVerticals(v1, v2);
       }
@@ -114,7 +113,6 @@ namespace alpr
       pipelineData->disqualify_reason = "platecorners did not find a top/bottom edge";
     }
 
-
     vector<Point> corners;
     corners.push_back(bestTop.intersection(bestLeft));
     corners.push_back(bestTop.intersection(bestRight));
@@ -138,19 +136,18 @@ namespace alpr
     LineSegment left;
     LineSegment right;
 
-
     float charHeightToPlateWidthRatio = pipelineData->config->plateWidthMM / pipelineData->config->avgCharHeightMM;
-    float idealPixelWidth = tlc.charHeight *  (charHeightToPlateWidthRatio * 1.03);	// Add 3% so we don't clip any characters
+    float idealPixelWidth = tlc.charHeight * (charHeightToPlateWidthRatio * 1.03); // Add 3% so we don't clip any characters
 
     float confidenceDiff = 0;
     float missingSegmentPenalty = 0;
 
     if (v1 == NO_LINE && v2 == NO_LINE)
     {
-      //return;
+      // return;
 
       left = tlc.centerVerticalLine.getParallelLine(-1 * idealPixelWidth / 2);
-      right = tlc.centerVerticalLine.getParallelLine(idealPixelWidth / 2 );
+      right = tlc.centerVerticalLine.getParallelLine(idealPixelWidth / 2);
 
       missingSegmentPenalty = 2;
       confidenceDiff += 2;
@@ -180,11 +177,10 @@ namespace alpr
     scoreKeeper.setScore("SCORING_LINE_CONFIDENCE_WEIGHT", confidenceDiff, SCORING_LINE_CONFIDENCE_WEIGHT);
     scoreKeeper.setScore("SCORING_MISSING_SEGMENT_PENALTY_VERTICAL", missingSegmentPenalty, SCORING_MISSING_SEGMENT_PENALTY_VERTICAL);
 
-    // Make sure that the left and right lines are to the left and right of our text 
+    // Make sure that the left and right lines are to the left and right of our text
     // area
     if (tlc.isLeftOfText(left) < 1 || tlc.isLeftOfText(right) > -1)
       return;
-
 
     /////////////////////////////////////////////////////////////////////////
     // Score angle difference from detected character box
@@ -203,16 +199,16 @@ namespace alpr
     Point rightMidLinePoint = right.closestPointOnSegmentTo(tlc.centerVerticalLine.midpoint());
 
     float actual_width = distanceBetweenPoints(leftMidLinePoint, rightMidLinePoint);
-    
+
     // Disqualify the pairing if it's less than one quarter of the ideal width
     if (actual_width < (idealPixelWidth / 4))
       return;
-      
+
     float plateDistance = abs(idealPixelWidth - actual_width);
 
     // normalize for image width
     plateDistance = plateDistance / ((float)inputImage.cols);
-    
+
     scoreKeeper.setScore("SCORING_DISTANCE_WEIGHT_VERTICAL", plateDistance, SCORING_DISTANCE_WEIGHT_VERTICAL);
 
     float score = scoreKeeper.getTotal();
@@ -229,6 +225,13 @@ namespace alpr
       }
 
       this->bestVerticalScore = score;
+      // CAP init corner
+      if (left.p1.x > 4)
+        left.p1.x -= 4;
+      if (left.p2.x > 4)
+        left.p2.x -= 4;
+      // CAP end
+
       bestLeft = LineSegment(left.p1.x, left.p1.y, left.p2.x, left.p2.y);
       bestRight = LineSegment(right.p1.x, right.p1.y, right.p2.x, right.p2.y);
     }
@@ -242,21 +245,20 @@ namespace alpr
 
     LineSegment top;
     LineSegment bottom;
-    
+
     // Add a few extra pixels to the guessed line, so we don't accidentally crop the characters
     int extra_vertical_pixels = 3;
     float charHeightToPlateHeightRatio = pipelineData->config->plateHeightMM / pipelineData->config->avgCharHeightMM;
-    float idealPixelHeight = tlc.charHeight *  charHeightToPlateHeightRatio;
+    float idealPixelHeight = tlc.charHeight * charHeightToPlateHeightRatio;
 
     float missingSegmentPenalty = 0;
 
     if (h1 == NO_LINE && h2 == NO_LINE)
     {
-  //    return;
-
+      //    return;
 
       top = tlc.centerHorizontalLine.getParallelLine(idealPixelHeight / 2);
-      bottom = tlc.centerHorizontalLine.getParallelLine(-1 * idealPixelHeight / 2 );
+      bottom = tlc.centerHorizontalLine.getParallelLine(-1 * idealPixelHeight / 2);
 
       missingSegmentPenalty = 2;
     }
@@ -280,14 +282,12 @@ namespace alpr
 
     scoreKeeper.setScore("SCORING_MISSING_SEGMENT_PENALTY_HORIZONTAL", missingSegmentPenalty, SCORING_MISSING_SEGMENT_PENALTY_HORIZONTAL);
 
-
     // Make sure that the top and bottom lines are above and below
     // the text area
     if (tlc.isAboveText(top) < 1 || tlc.isAboveText(bottom) > -1)
       return;
 
     // We now have 4 possible lines.  Let's put them to the test and score them...
-
 
     //////////////////////////////////////////////////////////////////////////
     // SCORE the shape wrt character position and height relative to position
@@ -319,10 +319,9 @@ namespace alpr
     float idealDistanceFromMiddle = idealPixelHeight / 2;
 
     float middleScore = abs(topDistanceFromMiddle - idealDistanceFromMiddle) / idealDistanceFromMiddle;
-    middleScore +=      abs(bottomDistanceFromMiddle - idealDistanceFromMiddle) / idealDistanceFromMiddle;
+    middleScore += abs(bottomDistanceFromMiddle - idealDistanceFromMiddle) / idealDistanceFromMiddle;
 
     scoreKeeper.setScore("SCORING_TOP_BOTTOM_SPACE_VS_CHARHEIGHT_WEIGHT", middleScore, SCORING_TOP_BOTTOM_SPACE_VS_CHARHEIGHT_WEIGHT);
-
 
     //////////////////////////////////////////////////////////////
     // SCORE: the shape for angles matching the character region
@@ -338,10 +337,9 @@ namespace alpr
       Mat debugImg(this->inputImage.size(), this->inputImage.type());
       this->inputImage.copyTo(debugImg);
       cvtColor(debugImg, debugImg, COLOR_GRAY2BGR);
-      line(debugImg, top.p1, top.p2, Scalar(0,0,255), 2);
-      line(debugImg, bottom.p1, bottom.p2, Scalar(0,0,255), 2);
-      //drawAndWait(&debugImg);
-
+      line(debugImg, top.p1, top.p2, Scalar(0, 0, 255), 2);
+      line(debugImg, bottom.p1, bottom.p2, Scalar(0, 0, 255), 2);
+      // drawAndWait(&debugImg);
     }
 
     float score = scoreKeeper.getTotal();
@@ -361,5 +359,3 @@ namespace alpr
   }
 
 }
-
-

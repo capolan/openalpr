@@ -15,22 +15,23 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "daemonconfig.h"
 #include "config_helper.h"
 
 using namespace alpr;
 
-DaemonConfig::DaemonConfig(std::string config_file, std::string config_defaults_file) {
+DaemonConfig::DaemonConfig(std::string config_file, std::string config_defaults_file)
+{
   CSimpleIniA ini;
   ini.SetMultiKey();
   ini.LoadFile(config_file.c_str());
-  
+
   CSimpleIniA defaultIni;
   defaultIni.SetMultiKey();
   defaultIni.LoadFile(config_defaults_file.c_str());
-  
+
   // Stream will only be in the user override config, never in the defaults
   CSimpleIniA::TNamesDepend values;
   ini.GetAllValues("daemon", "stream", values);
@@ -40,8 +41,9 @@ DaemonConfig::DaemonConfig(std::string config_file, std::string config_defaults_
 
   // output all of the items
   CSimpleIniA::TNamesDepend::const_iterator i;
-  for (i = values.begin(); i != values.end(); ++i) { 
-      stream_urls.push_back(i->pItem);
+  for (i = values.begin(); i != values.end(); ++i)
+  {
+    stream_urls.push_back(i->pItem);
   }
 
   country = getString(&ini, &defaultIni, "daemon", "country", "us");
@@ -49,9 +51,10 @@ DaemonConfig::DaemonConfig(std::string config_file, std::string config_defaults_
   gpio_in = getInt(&ini, &defaultIni, "daemon", "gpio_in", 0);
   gpio_out = getInt(&ini, &defaultIni, "daemon", "gpio_out", 0);
   analysis_threads = getInt(&ini, &defaultIni, "daemon", "analysis_threads", 1);
-  
+
   storePlates = getBoolean(&ini, &defaultIni, "daemon", "store_plates", false);
   markImagePlates = getBoolean(&ini, &defaultIni, "daemon", "mark_image_plate", false);
+  removeImagePlatesFile = getBoolean(&ini, &defaultIni, "daemon", "remove_image_plate_file", true);
   imageFolder = getString(&ini, &defaultIni, "daemon", "store_plates_location", "/tmp/");
   uploadData = getBoolean(&ini, &defaultIni, "daemon", "upload_data", false);
   upload_url = getString(&ini, &defaultIni, "daemon", "upload_address", "");
@@ -60,6 +63,6 @@ DaemonConfig::DaemonConfig(std::string config_file, std::string config_defaults_
   pattern = getString(&ini, &defaultIni, "daemon", "pattern", "");
 }
 
-DaemonConfig::~DaemonConfig() {
+DaemonConfig::~DaemonConfig()
+{
 }
-

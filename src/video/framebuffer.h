@@ -14,5 +14,4 @@
 #include "support/platform.h"
 
 int directoryInit (std::string mjpeg_dir);
-void directoryEnd (void);
 #endif

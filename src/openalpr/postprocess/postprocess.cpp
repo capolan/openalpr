@@ -15,7 +15,7 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "postprocess.h"
 
@@ -28,13 +28,13 @@ using namespace std;
 namespace alpr
 {
 
-  PostProcess::PostProcess(Config* config)
+  PostProcess::PostProcess(Config *config)
   {
     this->config = config;
 
     this->min_confidence = 0;
     this->skip_level = 0;
-    
+
     stringstream filename;
     filename << config->getPostProcessRuntimeDir() << "/" << config->country << ".patterns";
 
@@ -43,29 +43,28 @@ namespace alpr
     string region, pattern;
     while (infile >> region >> pattern)
     {
-      RegexRule* rule = new RegexRule(region, pattern, config->postProcessRegexLetters, config->postProcessRegexNumbers);
-      //cout << "REGION: " << region << " PATTERN: " << pattern << endl;
+      RegexRule *rule = new RegexRule(region, pattern, config->postProcessRegexLetters, config->postProcessRegexNumbers);
+      // cout << "REGION: " << region << " PATTERN: " << pattern << endl;
 
       if (rules.find(region) == rules.end())
       {
-        vector<RegexRule*> newRule;
+        vector<RegexRule *> newRule;
         newRule.push_back(rule);
         rules[region] = newRule;
       }
       else
       {
-        vector<RegexRule*> oldRule = rules[region];
+        vector<RegexRule *> oldRule = rules[region];
         oldRule.push_back(rule);
         rules[region] = oldRule;
       }
     }
-
   }
 
   PostProcess::~PostProcess()
   {
     // TODO: Delete all entries in rules vector
-    map<string, vector<RegexRule*> >::iterator iter;
+    map<string, vector<RegexRule *>>::iterator iter;
 
     for (iter = rules.begin(); iter != rules.end(); ++iter)
     {
@@ -75,12 +74,12 @@ namespace alpr
       }
     }
   }
-  
-  void PostProcess::setConfidenceThreshold(float min_confidence, float skip_level) {
+
+  void PostProcess::setConfidenceThreshold(float min_confidence, float skip_level)
+  {
     this->min_confidence = min_confidence;
     this->skip_level = skip_level;
   }
-
 
   void PostProcess::addLetter(string letter, int line_index, int charposition, float score)
   {
@@ -92,13 +91,13 @@ namespace alpr
     if (score < skip_level)
     {
       float adjustedScore = abs(skip_level - score) + min_confidence;
-      insertLetter(SKIP_CHAR, line_index, charposition, adjustedScore );
+      insertLetter(SKIP_CHAR, line_index, charposition, adjustedScore);
     }
 
-    //if (letter == '0')
+    // if (letter == '0')
     //{
-    //  insertLetter('O', charposition, score - 0.5);
-    //}
+    //   insertLetter('O', charposition, score - 0.5);
+    // }
   }
 
   void PostProcess::insertLetter(string letter, int line_index, int charposition, float score)
@@ -155,7 +154,7 @@ namespace alpr
     unknownCharPositions.resize(0);
     allPossibilities.clear();
     allPossibilitiesLetters.clear();
-    //allPossibilities.resize(0);
+    // allPossibilities.resize(0);
 
     bestChars = "";
     matchesTemplate = false;
@@ -167,7 +166,7 @@ namespace alpr
     getTimeMonotonic(&startTime);
 
     // Get a list of missing positions
-    for (int i = letters.size() -1; i >= 0; i--)
+    for (int i = letters.size() - 1; i >= 0; i--)
     {
       if (letters[i].size() == 0)
       {
@@ -222,7 +221,7 @@ namespace alpr
 
       // Now adjust the confidence scores to a percentage value
       float maxPercentScore = calculateMaxConfidenceScore();
-      float highestRelativeScore = (float) allPossibilities[0].totalscore;
+      float highestRelativeScore = (float)allPossibilities[0].totalscore;
 
       for (int i = 0; i < allPossibilities.size(); i++)
       {
@@ -258,7 +257,7 @@ namespace alpr
   {
     return rules.find(templateregion) != rules.end();
   }
-  
+
   float PostProcess::calculateMaxConfidenceScore()
   {
     // Take the best score for each char position and average it.
@@ -278,7 +277,7 @@ namespace alpr
     if (numScores == 0)
       return 0;
 
-    return totalScore / ((float) numScores);
+    return totalScore / ((float)numScores);
   }
 
   const vector<PPResult> PostProcess::getResults()
@@ -286,22 +285,24 @@ namespace alpr
     return this->allPossibilities;
   }
 
-  struct PermutationCompare {
-    bool operator() (pair<float,vector<int> > &a, pair<float,vector<int> > &b)
+  struct PermutationCompare
+  {
+    bool operator()(pair<float, vector<int>> &a, pair<float, vector<int>> &b)
     {
       return (a.first < b.first);
     }
   };
 
-  void PostProcess::findAllPermutations(string templateregion, int topn) {
+  void PostProcess::findAllPermutations(string templateregion, int topn)
+  {
 
     // use a priority queue to process permutations in highest scoring order
-    priority_queue<pair<float,vector<int> >, vector<pair<float,vector<int> > >, PermutationCompare> permutations;
+    priority_queue<pair<float, vector<int>>, vector<pair<float, vector<int>>>, PermutationCompare> permutations;
     set<float> permutationHashes;
 
     // push the first word onto the queue
     float totalscore = 0;
-    for (int i=0; i<letters.size(); i++)
+    for (int i = 0; i < letters.size(); i++)
     {
       if (letters[i].size() > 0)
         totalscore += letters[i][0].totalscore;
@@ -313,24 +314,27 @@ namespace alpr
     while (permutations.size() > 0)
     {
       // get the top permutation and analyze
-      pair<float, vector<int> > topPermutation = permutations.top();
+      pair<float, vector<int>> topPermutation = permutations.top();
       if (analyzePermutation(topPermutation.second, templateregion, topn) == true)
         consecutiveNonMatches = 0;
       else
         consecutiveNonMatches += 1;
       permutations.pop();
 
-      if (allPossibilities.size() >= topn || consecutiveNonMatches >= (topn*2))
+      // CAP
+      if (this->config->ocrLanguageBr & 0b10)
+        consecutiveNonMatches = 0;
+      if (allPossibilities.size() >= topn || consecutiveNonMatches >= (topn * 2))
         break;
 
       // add child permutations to queue
-      for (int i=0; i<letters.size(); i++)
+      for (int i = 0; i < letters.size(); i++)
       {
         // no more permutations with this letter
-        if (topPermutation.second[i]+1 >= letters[i].size())
+        if (topPermutation.second[i] + 1 >= letters[i].size())
           continue;
 
-        pair<float, vector<int> > childPermutation = topPermutation;
+        pair<float, vector<int>> childPermutation = topPermutation;
         childPermutation.first -= letters[i][topPermutation.second[i]].totalscore - letters[i][topPermutation.second[i] + 1].totalscore;
         childPermutation.second[i] += 1;
 
@@ -366,7 +370,7 @@ namespace alpr
         possibility.letters = possibility.letters + "\n";
       }
       last_line = letter.line_index;
-      
+
       if (letter.letter != SKIP_CHAR)
       {
         possibility.letters = possibility.letters + letter.letter;
@@ -378,13 +382,13 @@ namespace alpr
 
     // ignore plates that don't fit the length requirements
     if (plate_char_length < config->postProcessMinCharacters ||
-      plate_char_length > config->postProcessMaxCharacters)
+        plate_char_length > config->postProcessMaxCharacters)
       return false;
 
     // Apply templates
     if (templateregion != "")
     {
-      vector<RegexRule*> regionRules = rules[templateregion];
+      vector<RegexRule *> regionRules = rules[templateregion];
 
       for (int i = 0; i < regionRules.size(); i++)
       {
@@ -400,29 +404,31 @@ namespace alpr
     if (allPossibilitiesLetters.end() != allPossibilitiesLetters.find(possibility.letters))
       return false;
 
-    // If mustMatchPattern is toggled in the config and a template is provided, 
+    // If mustMatchPattern is toggled in the config and a template is provided,
     // only include this result if there is a pattern match
-    if (!config->mustMatchPattern || templateregion.size() == 0 || 
+    if (!config->mustMatchPattern || templateregion.size() == 0 ||
         (config->mustMatchPattern && possibility.matchesTemplate))
     {
       allPossibilities.push_back(possibility);
       allPossibilitiesLetters.insert(possibility.letters);
       return true;
     }
-    
+
     return false;
   }
 
-  std::vector<string> PostProcess::getPatterns() {
+  std::vector<string> PostProcess::getPatterns()
+  {
     vector<string> v;
-    for(map<string,std::vector<RegexRule*> >::iterator it = rules.begin(); it != rules.end(); ++it) {
+    for (map<string, std::vector<RegexRule *>>::iterator it = rules.begin(); it != rules.end(); ++it)
+    {
       v.push_back(it->first);
     }
-    
+
     return v;
   }
 
-  bool letterCompare( const Letter &left, const Letter &right )
+  bool letterCompare(const Letter &left, const Letter &right)
   {
     if (left.totalscore < right.totalscore)
       return false;

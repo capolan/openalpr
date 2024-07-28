@@ -112,6 +112,8 @@ namespace alpr
       std::string detectorFile;
       
       std::string ocrLanguage;
+      // CAP
+      int ocrLanguageBr;
       int ocrMinFontSize;
 
       bool mustMatchPattern;

@@ -215,7 +215,7 @@ int main( int argc, const char** argv )
 
       VideoBuffer videoBuffer;
 
-      videoBuffer.connect(filename, 5);
+      videoBuffer.connect(filename, false, 5);
 
       cv::Mat latestFrame;
 

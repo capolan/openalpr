@@ -1,3 +1,4 @@
+//#define NO_SIGNAL
 
 #include "videobuffer.h"
 #include "framebuffer.h"
@@ -164,6 +165,10 @@ __event_process(struct inotify_event *event, VideoDispatcher *dispatcher)
           sleep_ms(20);
           sprintf((char *)str1, "%s/%s", monitors[i].path, event->name);
           getALPRFrames((char *)str1, dispatcher);
+          if (dispatcher->removeImageFile == true)
+          {
+            unlink(str1);
+          }
           strcpy(lastFile, event->name);
         }
         else
@@ -205,6 +210,7 @@ __initialize_inotify(std::string mjpeg_dir, VideoDispatcher *dispatcher)
     dispatcher->log_error(str);
     return -1;
   }
+ 
   n_monitors = 0;
   for (int i = 0; mjpeg_dir[i]; i++)
   {
@@ -255,6 +261,7 @@ __shutdown_signals(int signal_fd)
   close(signal_fd);
 }
 
+#ifdef NO_SIGNAL
 static int
 __initialize_signals(VideoDispatcher *dispatcher)
 {
@@ -284,6 +291,7 @@ __initialize_signals(VideoDispatcher *dispatcher)
 
   return signal_fd;
 }
+#endif
 
 int directoryInit(std::string mjpeg_dir, VideoDispatcher *dispatcher)
 {
@@ -292,12 +300,13 @@ int directoryInit(std::string mjpeg_dir, VideoDispatcher *dispatcher)
   struct pollfd fds[FD_POLL_MAX];
   char str[100];
   /* Initialize signals FD */
+#ifdef NO_SIGNAL
   if ((signal_fd = __initialize_signals(dispatcher)) < 0)
   {
     dispatcher->log_error("Couldn't initialize signals");
     exit(EXIT_FAILURE);
   }
-
+#endif
   /* Initialize inotify FD and the watch descriptors */
   if ((inotify_fd = __initialize_inotify(mjpeg_dir, dispatcher)) < 0)
   {
@@ -330,6 +339,7 @@ int directoryInit(std::string mjpeg_dir, VideoDispatcher *dispatcher)
         dispatcher->log_info(".");
         continue;
       }
+#ifdef NO_SIGNAL
       /* Signal received? */
       if (fds[FD_POLL_SIGNAL].revents & POLLIN)
       {
@@ -353,7 +363,7 @@ int directoryInit(std::string mjpeg_dir, VideoDispatcher *dispatcher)
 
         dispatcher->log_info("Received unexpected signal");
       }
-
+#endif
       /* Inotify event received? */
       if (fds[FD_POLL_INOTIFY].revents & POLLIN)
       {
@@ -381,8 +391,9 @@ int directoryInit(std::string mjpeg_dir, VideoDispatcher *dispatcher)
     sleep_ms(100);
   }
   __shutdown_inotify(inotify_fd);
-  __shutdown_signals(signal_fd);
-
+#ifdef NO_SIGNAL
+  if (signal_fd > 0) __shutdown_signals(signal_fd);
+#endif
   dispatcher->log_info("Exiting dir lookup");
   return EXIT_SUCCESS;
 }
