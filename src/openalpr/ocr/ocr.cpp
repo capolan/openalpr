@@ -15,47 +15,76 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include "ocr.h"
 
 namespace alpr
 {
-  
-  OCR::OCR(Config* config) : postProcessor(config) {
+
+  OCR::OCR(Config *config) : postProcessor(config)
+  {
     this->config = config;
   }
 
-
-  OCR::~OCR() {
+  OCR::~OCR()
+  {
   }
 
-  
-  void OCR::performOCR(PipelineData* pipeline_data)
+  void OCR::performOCR(PipelineData *pipeline_data)
   {
-    
+
     timespec startTime;
     getTimeMonotonic(&startTime);
 
     segment(pipeline_data);
-    
-    postProcessor.clear();
 
+    postProcessor.clear();
 
     int absolute_charpos = 0;
     for (unsigned int line_idx = 0; line_idx < pipeline_data->textLines.size(); line_idx++)
     {
       std::vector<OcrChar> chars = recognize_line(line_idx, pipeline_data);
-      
+
       for (uint32_t i = 0; i < chars.size(); i++)
       {
+        // CAP char
+        int ci = chars[i].char_index;
+        std::string ls = chars[i].letter;
+        char l = *ls.c_str();
+        if (ci <= 3)
+        {
+          if (isdigit(l))
+          {
+            if (l == '1') chars[i].letter = "I";
+            if (l == '2') chars[i].letter = "Z";
+            if (l == '5') chars[i].letter = "S";
+            if (l == '8') chars[i].letter = "B";
+            if (l == '0') chars[i].letter = "O";
+          }
+        }
+        else if (ci == 4 || ci >= 6)
+        {
+          if (!isdigit(l))
+          {
+            if (l == 'Z') chars[i].letter = "2";
+            if (l == 'O') chars[i].letter = "0";
+            if (l == 'I') chars[i].letter = "1";
+            if (l == 'B') chars[i].letter = "8";
+            if (l == 'S') chars[i].letter = "5";
+	      }
+        }
+        /*if (l != chars[i].letter[0])
+        {
+            printf ("%d %d %c \n", ci, i, l);
+        }*/
+//	printf ("pos:%d char:%c -> %c \n",ci,l, chars[i].letter[0]);
         // For multi-line plates, set the character indexes to sequential values based on the line number
         int line_ordered_index = (line_idx * config->postProcessMaxCharacters) + chars[i].char_index;
         postProcessor.addLetter(chars[i].letter, line_idx, line_ordered_index, chars[i].confidence);
         absolute_charpos++;
       }
     }
-    
 
     if (config->debugTiming)
     {

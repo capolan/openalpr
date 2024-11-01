@@ -226,10 +226,12 @@ namespace alpr
 
       this->bestVerticalScore = score;
       // CAP init corner
+      /*
       if (left.p1.x > 4)
         left.p1.x -= 4;
       if (left.p2.x > 4)
         left.p2.x -= 4;
+        */
       // CAP end
 
       bestLeft = LineSegment(left.p1.x, left.p1.y, left.p2.x, left.p2.y);

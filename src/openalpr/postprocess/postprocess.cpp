@@ -322,8 +322,7 @@ namespace alpr
       permutations.pop();
 
       // CAP
-      if (this->config->ocrLanguageBr & 0b10)
-        consecutiveNonMatches = 0;
+      if (this->config->ocrLanguageBr & 0b10) consecutiveNonMatches = 0;
       if (allPossibilities.size() >= topn || consecutiveNonMatches >= (topn * 2))
         break;
 
@@ -379,7 +378,8 @@ namespace alpr
       }
       possibility.totalscore = possibility.totalscore + letter.totalscore;
     }
-
+    if (this->config->debugPostProcess)
+        printf ("plate_char_length:%d  %s\n", plate_char_length, possibility.letters.c_str());
     // ignore plates that don't fit the length requirements
     if (plate_char_length < config->postProcessMinCharacters ||
         plate_char_length > config->postProcessMaxCharacters)

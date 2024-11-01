@@ -326,6 +326,7 @@ namespace alpr
 
         cv::Mat charTransformMatrix = getCharacterTransformMatrix(&pipeline_data);
         bool isBestPlateSelected = false;
+	printf ("ppResults.size:%d\n", ppResults.size());
         for (unsigned int pp = 0; pp < ppResults.size(); pp++)
         {
 

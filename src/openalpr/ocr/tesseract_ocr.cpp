@@ -74,8 +74,9 @@ namespace alpr
                          pipeline_data->thresholds[i].channels(), pipeline_data->thresholds[i].step1());
 
       int absolute_charpos = 0;
-
-      for (unsigned int j = 0; j < pipeline_data->charRegions[line_idx].size(); j++)
+      int plate_size = pipeline_data->charRegions[line_idx].size();
+      //if (plate_size > 6) plate_size=7;
+      for (unsigned int j = 0; j < plate_size; j++)
       {
         Rect expandedRegion = expandRect(pipeline_data->charRegions[line_idx][j], 2, 2, pipeline_data->thresholds[i].cols, pipeline_data->thresholds[i].rows);
 
@@ -158,11 +159,50 @@ namespace alpr
     if (this->config->ocrLanguageBr & 0b01)
     {
       int firstChar = recognized_chars[0].char_index;
+
+      int maxIdx=-1;
+      int cMinConf=0;
+      int cMaxConf=0;
       for (int i = 0; i < recognized_chars.size(); i++)
       {
         OcrChar *pos = &recognized_chars[i];
-        // testa 3 primeiros char
         int cidx = pos->char_index - firstChar;
+        if (cidx == 0 && cMinConf < pos->confidence) cMinConf = pos->confidence;
+        if (cidx > maxIdx)
+        {
+           maxIdx =cidx;
+           cMaxConf = pos->confidence;
+        }
+      }
+      printf("cMinConf:%d maxIdx:%d cMaxConf:%d\n", cMinConf, maxIdx, cMaxConf);
+      // testa se tem +8 char na placa
+      bool perde0=false;
+      if (maxIdx >=7) 
+      {
+	if (cMaxConf > cMinConf)
+        {
+           printf("===== REORDENA ====\n");
+           perde0=true;
+        }
+      }
+
+      for (int i = 0; i < recognized_chars.size(); i++)
+      {
+        OcrChar *pos = &recognized_chars[i];
+        int cidx = pos->char_index - firstChar;
+        if (perde0)
+        {
+          if (cidx==0) {
+	    pos->confidence=0;
+          } else {
+            pos->char_index--;
+            cidx--;
+          }
+        }
+        // testa 3 primeiros char
+        if (this->config->debugOcr) {
+	  printf ("%d pos:%d char:%c confidence:%2.2f\n", i, cidx, pos->letter[0], pos->confidence);
+        }
         if (cidx <= 2)
         {
           if (isdigit(pos->letter[0]))

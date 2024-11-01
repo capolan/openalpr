@@ -96,13 +96,19 @@ IF(OpenCV_FRAMEWORK_PATH)
   SET(CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE NO)
 ELSE()
   # Discover OpenCV directory automatically
+  #find_path(OpenCV_DIR
+  #  NAMES OpenCVConfig.cmake
+  #  HINTS ${CMAKE_SOURCE_DIR}/../libraries/opencv/
+  #  /storage/projects/alpr/libraries/opencv/
+  #  )
   find_path(OpenCV_DIR
-    NAMES OpenCVConfig.cmake
-    HINTS ${CMAKE_SOURCE_DIR}/../libraries/opencv/
-    /storage/projects/alpr/libraries/opencv/
+    NAMES libopencv_core.so
+    HINTS /lib
     )
   # Opencv Package
+  #FIND_PACKAGE( OpenCV 4.10.0 EXACT REQUIRED )
   FIND_PACKAGE( OpenCV REQUIRED )
+  MESSAGE(STATUS ${OpenCV})
 ENDIF()
 
 IF (${OpenCV_VERSION} VERSION_LESS 2.4.7)
@@ -129,6 +135,7 @@ ELSE()
 
 	SET (Extra_LIBS
 		pthread
+		lgpio
 	)
 
 ENDIF()
