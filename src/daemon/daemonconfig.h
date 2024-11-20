@@ -19,6 +19,7 @@ public:
   int gpio_in;
   int gpio_out;
   int analysis_threads;
+  bool alwaysSend;
   bool storePlates;
   bool markImagePlates;
   bool removeImagePlatesFile;

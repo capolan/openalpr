@@ -67,6 +67,7 @@ struct CaptureThreadData
   bool mark_image_plate;
   bool mark_image_plate_file;
   std::string output_image_folder;
+  int alwaysSend;
   int top_n;
   int gpio_in;
   int gpio_out;
@@ -339,6 +340,7 @@ int main(int argc, const char **argv)
       tdata->camera_id = i + 1;
       tdata->config_file = openAlprConfigFile;
       tdata->mark_image_plate = daemon_config.markImagePlates;
+      tdata->alwaysSend = daemon_config.alwaysSend;
       tdata->mark_image_plate_file = daemon_config.removeImagePlatesFile;
       tdata->output_images = daemon_config.storePlates;
       tdata->output_image_folder = daemon_config.imageFolder;
@@ -440,7 +442,7 @@ void processingThread(void *arg)
       LOG4CPLUS_INFO(logger, "Camera " << tdata->camera_id << " processed frame in: " << totalProcessingTime << " ms.");
     }
     // CAP
-    if (sigusr1_ok || sigusr2_ok || results.plates.size() > 0)
+    if (sigusr1_ok || sigusr2_ok || tdata->alwaysSend ||  results.plates.size() > 0)
     {
 
       std::stringstream uuid_ss;
@@ -517,17 +519,21 @@ void processingThread(void *arg)
       cJSON_AddNumberToObject(root, "img_width", frame.cols);
       cJSON_AddNumberToObject(root, "img_height", frame.rows);
       // CAP
+      if (tdata->alwaysSend && results.plates.size() == 0)
+      {
+        cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_all"));
+      } else
       if (sigusr1_ok)
       {
         cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_photo"));
         sigusr1_ok = false;
-      }
+      } else
       if (tdata->gpio_in > 0)
       {
         levelGPIO = lgGpioRead(handleGPIO, tdata->gpio_in);
         cJSON_AddNumberToObject(root, "levelGPIO", levelGPIO);
         cJSON_AddNumberToObject(root, "triggerGPIO", triggerGPIO);
-      }
+      } else 
       if (sigusr2_ok)
       {
         cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_trigger"));

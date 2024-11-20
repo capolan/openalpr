@@ -105,9 +105,9 @@ ELSE()
     NAMES libopencv_core.so
     HINTS /lib
     )
-  # Opencv Package
-  #FIND_PACKAGE( OpenCV 4.10.0 EXACT REQUIRED )
-  FIND_PACKAGE( OpenCV REQUIRED )
+    # Opencv Package CAP
+  FIND_PACKAGE( OpenCV 4.10.0 EXACT REQUIRED )
+  #FIND_PACKAGE( OpenCV REQUIRED )
   MESSAGE(STATUS ${OpenCV})
 ENDIF()
 
