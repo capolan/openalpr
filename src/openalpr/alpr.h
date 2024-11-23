@@ -30,6 +30,9 @@
   #define OPENALPR_DLL_EXPORT 
 #endif
 
+#define DEBUG_CAP
+#define GPIO_CAP
+
 namespace alpr
 {
   

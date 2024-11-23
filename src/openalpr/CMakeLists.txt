@@ -2,6 +2,7 @@
 
 
 set(lpr_source_files
+ inference.cpp
  alpr.cpp
  alpr_impl.cpp
  alpr_c.cpp

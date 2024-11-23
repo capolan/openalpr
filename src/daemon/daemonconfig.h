@@ -25,6 +25,7 @@ public:
   bool removeImagePlatesFile;
   std::string imageFolder;
   bool uploadData;
+  std::string onnx_file;
   std::string upload_url;
   std::string company_id;
   std::string site_id;

@@ -57,6 +57,7 @@ DaemonConfig::DaemonConfig(std::string config_file, std::string config_defaults_
   alwaysSend = getBoolean(&ini, &defaultIni, "daemon", "alwaysSend", false);
   removeImagePlatesFile = getBoolean(&ini, &defaultIni, "daemon", "remove_image_plate_file", true);
   imageFolder = getString(&ini, &defaultIni, "daemon", "store_plates_location", "/tmp/");
+  onnx_file = getString(&ini, &defaultIni, "daemon", "onnx", "");
   uploadData = getBoolean(&ini, &defaultIni, "daemon", "upload_data", false);
   upload_url = getString(&ini, &defaultIni, "daemon", "upload_address", "");
   company_id = getString(&ini, &defaultIni, "daemon", "company_id", "");

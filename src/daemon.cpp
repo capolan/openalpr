@@ -1,12 +1,9 @@
-#define DEBUG_CAP
-
 #include <unistd.h>
 #include <inttypes.h>
 #include <sys/syscall.h>
 #include <sstream>
 #include <iostream>
 #include <execinfo.h>
-#include <lgpio.h>
 #include <fstream>
 
 #include "daemon/beanstalk.hpp"
@@ -20,6 +17,13 @@
 #include "support/tinythread.h"
 #include <curl/curl.h>
 #include "support/timing.h"
+
+#ifdef GPIO_CAP
+#include <lgpio.h>
+#endif
+#ifdef DEBUG_CAP
+#include "inference.h"
+#endif
 
 #include <log4cplus/logger.h>
 #include <log4cplus/loggingmacros.h>
@@ -67,10 +71,13 @@ struct CaptureThreadData
   bool mark_image_plate;
   bool mark_image_plate_file;
   std::string output_image_folder;
+  std::string onnx_file;
   int alwaysSend;
   int top_n;
+#ifdef GPIO_CAP
   int gpio_in;
   int gpio_out;
+#endif
 };
 
 struct UploadThreadData
@@ -123,6 +130,7 @@ void segfault_handler(int sig)
   exit(1);
 }
 
+#ifdef GPIO_CAP
 /* CAP  GPIO interrupt */
 void callback_GPIO(int e, lgGpioAlert_p evt, void *data)
 {
@@ -188,6 +196,7 @@ int init_GPIO(int pin_in, int pin_out)
   //   lgGpioClaimAlert(handleGPIO, 0, LG_BOTH_EDGES, 27, -1);
   return 0;
 }
+#endif
 
 void sigusr1_handler(int sig)
 {
@@ -216,6 +225,9 @@ void processLed(void *arg)
 
 int main(int argc, const char **argv)
 {
+#ifndef GPIO_CAP
+  LOG4CPLUS_INFO(logger, "GPIO desativado.");
+#endif
   sigusr1_ok = false;
   signal(SIGSEGV, segfault_handler); // install our segfault handler
   signal(SIGUSR1, sigusr1_handler);  // install our segfault handler
@@ -349,12 +361,15 @@ int main(int argc, const char **argv)
       tdata->site_id = daemon_config.site_id;
       tdata->analysis_threads = daemon_config.analysis_threads;
       tdata->top_n = daemon_config.topn;
+      tdata->pattern = daemon_config.pattern;
+      tdata->onnx_file = daemon_config.onnx_file;
+      tdata->clock_on = clockOn;
+#ifdef GPIO_CAP
       tdata->gpio_in = daemon_config.gpio_in;
       tdata->gpio_out = daemon_config.gpio_out;
-      tdata->pattern = daemon_config.pattern;
-      tdata->clock_on = clockOn;
-
       init_GPIO(tdata->gpio_in, tdata->gpio_out);
+#endif
+
       tthread::thread *thread_recognize = new tthread::thread(streamRecognitionThread, (void *)tdata);
       threads.push_back(thread_recognize);
 
@@ -364,7 +379,6 @@ int main(int argc, const char **argv)
         UploadThreadData *udata = new UploadThreadData();
         udata->upload_url = daemon_config.upload_url;
         tthread::thread *thread_upload = new tthread::thread(dataUploadThread, (void *)udata);
-
         threads.push_back(thread_upload);
       }
 
@@ -395,6 +409,19 @@ void processingThread(void *arg)
   alpr.setDefaultRegion(tdata->pattern);
 
 #ifdef DEBUG_CAP
+  int exOnnx = fileExists(tdata->onnx_file.c_str());
+  if (tdata->onnx_file.size() == 0) {
+      exOnnx = -1;
+      LOG4CPLUS_INFO(logger, "onnx desativado.");
+  } else {
+      if (exOnnx == 0) {
+        LOG4CPLUS_ERROR(logger, "onnx: " << tdata->onnx_file << " não encontrado.");
+      } else {
+        LOG4CPLUS_INFO(logger, "onnx: " << tdata->onnx_file);
+      }
+  }
+
+  Inference inf(tdata->onnx_file, cv::Size(640, 640), "classes.txt", false);
   bool isDir = strstr(tdata->stream_url.c_str(), "dir:");
 
   if (s0 == 0)
@@ -486,7 +513,9 @@ void processingThread(void *arg)
           unlink(str2);
           symlink(str, str2);
           LOG4CPLUS_INFO(logger, "SIGUSR1 foto");
+#ifdef GPIO_CAP
           lgGpioWrite(handleGPIO, tdata->gpio_out, 1);
+#endif
           pin_out = 1;
         }
         else if (sigusr2_ok)
@@ -500,12 +529,16 @@ void processingThread(void *arg)
           unlink(str2);
           symlink(str, str2);
           LOG4CPLUS_INFO(logger, "SIGUSR2 trigger level:" << levelGPIO);
+#ifdef GPIO_CAP
           lgGpioWrite(handleGPIO, tdata->gpio_out, 1);
+#endif
           pin_out = 1;
         }
         else if (tdata->gpio_out > 0 && pin_out)
         {
+#ifdef GPIO_CAP
           lgGpioWrite(handleGPIO, tdata->gpio_out, 0);
+#endif
           pin_out = 0;
         }
       }
@@ -521,19 +554,33 @@ void processingThread(void *arg)
       // CAP
       if (tdata->alwaysSend && results.plates.size() == 0)
       {
-        cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_all"));
+        int detections = 0;
+        if (exOnnx > 0)
+        {
+            std::vector<Detection> pldet = inf.runInference(frame);
+            detections = pldet.size();
+        }
+        if (detections == 0)
+        {
+            cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_none"));
+        } else
+        {
+            cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_all"));
+        }
       } else
       if (sigusr1_ok)
       {
         cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_photo"));
         sigusr1_ok = false;
       } else
+#ifdef GPIO_CAP
       if (tdata->gpio_in > 0)
       {
         levelGPIO = lgGpioRead(handleGPIO, tdata->gpio_in);
         cJSON_AddNumberToObject(root, "levelGPIO", levelGPIO);
         cJSON_AddNumberToObject(root, "triggerGPIO", triggerGPIO);
       } else 
+#endif
       if (sigusr2_ok)
       {
         cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_trigger"));
