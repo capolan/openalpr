@@ -103,10 +103,12 @@ const std::string currentDateTime()
   return buf;
 }
 /*---------------INTERRUPT-----------------------------*/
+#ifdef GPIO_CAP
 int handleGPIO = -1;
 int levelGPIO = -1;
 int triggerGPIO = 0;
 int pin_out = 0;
+#endif
 bool sigusr1_ok;
 bool sigusr2_ok;
 
@@ -120,8 +122,10 @@ void segfault_handler(int sig)
   size_t size;
 
   // CAP
+#ifdef GPIO_CAP
   if (handleGPIO >= 0)
     lgGpiochipClose(handleGPIO);
+#endif
   // get void*'s for all entries on the stack
   size = backtrace(array, 10);
 
@@ -515,8 +519,8 @@ void processingThread(void *arg)
           LOG4CPLUS_INFO(logger, "SIGUSR1 foto");
 #ifdef GPIO_CAP
           lgGpioWrite(handleGPIO, tdata->gpio_out, 1);
-#endif
           pin_out = 1;
+#endif
         }
         else if (sigusr2_ok)
         {
@@ -528,19 +532,19 @@ void processingThread(void *arg)
           const char *str2 = tmp2.c_str();
           unlink(str2);
           symlink(str, str2);
-          LOG4CPLUS_INFO(logger, "SIGUSR2 trigger level:" << levelGPIO);
 #ifdef GPIO_CAP
+          LOG4CPLUS_INFO(logger, "SIGUSR2 trigger level:" << levelGPIO);
           lgGpioWrite(handleGPIO, tdata->gpio_out, 1);
-#endif
           pin_out = 1;
+#endif
         }
+#ifdef GPIO_CAP
         else if (tdata->gpio_out > 0 && pin_out)
         {
-#ifdef GPIO_CAP
           lgGpioWrite(handleGPIO, tdata->gpio_out, 0);
-#endif
           pin_out = 0;
         }
+#endif
       }
 
       // Update the JSON content to include UUID and camera ID
@@ -585,7 +589,9 @@ void processingThread(void *arg)
       {
         cJSON_ReplaceItemInObject(root, "data_type", cJSON_CreateString("alpr_trigger"));
         sigusr2_ok = false;
+#ifdef GPIO_CAP
         triggerGPIO = 0;
+#endif
       }
 
       // Add the company ID to the output if configured

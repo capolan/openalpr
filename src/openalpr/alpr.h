@@ -31,7 +31,7 @@
 #endif
 
 #define DEBUG_CAP
-#define GPIO_CAP
+//#define GPIO_CAP
 
 namespace alpr
 {
