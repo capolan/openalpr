@@ -112,49 +112,8 @@ ELSE()
 ENDIF()
 
 MESSAGE(STATUS ${OpenCV_INCLUDE_DIRS})
-set(OpenCV_INCLUDE_DIRS /usr/local/opencv/include /usr/local/build /usr/local/opencv/modules/core/include
- /usr/local/opencv/modules/calib3d/include
- /usr/local/opencv/modules/features2d/include
- /usr/local/opencv/modules/flann/include
- /usr/local/opencv/modules/dnn/include
- /usr/local/opencv/modules/highgui/include
- /usr/local/opencv/modules/imgcodecs/include
- /usr/local/opencv/modules/videoio/include
- /usr/local/opencv/modules/core/include
- /usr/local/opencv/modules/gapi/include
- /usr/local/opencv/modules/imgproc/include
- /usr/local/opencv/modules/java/include
- /usr/local/opencv/modules/js/include
- /usr/local/opencv/modules/ml/include
- /usr/local/opencv/modules/objc/include
- /usr/local/opencv/modules/objdetect/include
- /usr/local/opencv/modules/photo/include
- /usr/local/opencv/modules/python/include
- /usr/local/opencv/modules/stitching/include
- /usr/local/opencv/modules/ts/include
- /usr/local/opencv/modules/video/include
- /usr/local/opencv/modules/world/include
- /usr/local/opencv/modules/calib3d/include
- /usr/local/opencv/modules/core/include
- /usr/local/opencv/modules/dnn/include
- /usr/local/opencv/modules/features2d/include
- /usr/local/opencv/modules/flann/include
- /usr/local/opencv/modules/gapi/include
- /usr/local/opencv/modules/highgui/include
- /usr/local/opencv/modules/imgcodecs/include
- /usr/local/opencv/modules/imgproc/include
- /usr/local/opencv/modules/java/include
- /usr/local/opencv/modules/js/include
- /usr/local/opencv/modules/ml/include
- /usr/local/opencv/modules/objc/include
- /usr/local/opencv/modules/objdetect/include
- /usr/local/opencv/modules/photo/include
- /usr/local/opencv/modules/python/include
- /usr/local/opencv/modules/stitching/include
- /usr/local/opencv/modules/ts/include
- /usr/local/opencv/modules/video/include
- /usr/local/opencv/modules/videoio/include
- /usr/local/opencv/modules/world/include)
+set(OpenCV_INCLUDE_DIRS /usr/local/include/opencv4 /usr/local/build)
+#set(OpenCV_INCLUDE_DIRS /usr/local/opencv/include /usr/local/build /usr/local/opencv/modules/core/include /usr/local/opencv/modules/calib3d/include /usr/local/opencv/modules/features2d/include /usr/local/opencv/modules/flann/include /usr/local/opencv/modules/dnn/include /usr/local/opencv/modules/highgui/include /usr/local/opencv/modules/imgcodecs/include /usr/local/opencv/modules/videoio/include /usr/local/opencv/modules/core/include /usr/local/opencv/modules/gapi/include /usr/local/opencv/modules/imgproc/include /usr/local/opencv/modules/java/include /usr/local/opencv/modules/js/include /usr/local/opencv/modules/ml/include /usr/local/opencv/modules/objc/include /usr/local/opencv/modules/objdetect/include /usr/local/opencv/modules/photo/include /usr/local/opencv/modules/python/include /usr/local/opencv/modules/stitching/include /usr/local/opencv/modules/ts/include /usr/local/opencv/modules/video/include /usr/local/opencv/modules/world/include /usr/local/opencv/modules/calib3d/include /usr/local/opencv/modules/core/include /usr/local/opencv/modules/dnn/include /usr/local/opencv/modules/features2d/include /usr/local/opencv/modules/flann/include /usr/local/opencv/modules/gapi/include /usr/local/opencv/modules/highgui/include /usr/local/opencv/modules/imgcodecs/include /usr/local/opencv/modules/imgproc/include /usr/local/opencv/modules/java/include /usr/local/opencv/modules/js/include /usr/local/opencv/modules/ml/include /usr/local/opencv/modules/objc/include /usr/local/opencv/modules/objdetect/include /usr/local/opencv/modules/photo/include /usr/local/opencv/modules/python/include /usr/local/opencv/modules/stitching/include /usr/local/opencv/modules/ts/include /usr/local/opencv/modules/video/include /usr/local/opencv/modules/videoio/include /usr/local/opencv/modules/world/include)
 
 MESSAGE(STATUS ${OpenCV_INCLUDE_DIRS})
 IF (${OpenCV_VERSION} VERSION_LESS 2.4.7)

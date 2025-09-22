@@ -2,11 +2,12 @@
 
 ; country determines the training dataset used for recognizing plates.  
 ; Valid values are: us, eu, au, auwide, gb, kr, mx, sg
-country = us
+country = br
 ;pattern = ca
 
 ; text name identifier for this location
 ;   site_id = your-unique-sitename
+company_id=HOME
 
 ; Declare each stream on a separate line
 ; each unique stream should be defined as stream = [url]
@@ -21,7 +22,9 @@ country = us
 ;stream = http://127.0.0.1:3001?action=stream
 ;stream = /dev/v4l0
 stream = /dev/video1
-;stream = dir:/home/admin/ftp;/opt/plate
+stream = dir:/home/camera/ftp/cam1
+stream = dir:/home/camera/ftp/cam2
+
 
 ; Number of threads to analyze frames.
 analysis_threads = 4
@@ -47,3 +50,5 @@ store_plates_location = /var/lib/openalpr/plateimages/
 upload_data = 0
 upload_address = http://localhost:9000/push/
 
+; onnx
+;onnx=<file.model>
