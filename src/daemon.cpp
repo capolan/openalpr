@@ -72,7 +72,7 @@ struct CaptureThreadData
   bool mark_image_plate_file;
   std::string output_image_folder;
   std::string onnx_file;
-  int alwaysSend;
+  bool alwaysSend;
   int top_n;
 #ifdef GPIO_CAP
   int gpio_in;
@@ -230,7 +230,7 @@ void processLed(void *arg)
 int main(int argc, const char **argv)
 {
 #ifndef GPIO_CAP
-  LOG4CPLUS_INFO(logger, "GPIO desativado.");
+  //LOG4CPLUS_INFO(logger, "GPIO desativado.");
 #endif
   sigusr1_ok = false;
   signal(SIGSEGV, segfault_handler); // install our segfault handler
@@ -357,6 +357,7 @@ int main(int argc, const char **argv)
       tdata->config_file = openAlprConfigFile;
       tdata->mark_image_plate = daemon_config.markImagePlates;
       tdata->alwaysSend = daemon_config.alwaysSend;
+printf("alwaysSend:%d\n", tdata->alwaysSend);
       tdata->mark_image_plate_file = daemon_config.removeImagePlatesFile;
       tdata->output_images = daemon_config.storePlates;
       tdata->output_image_folder = daemon_config.imageFolder;

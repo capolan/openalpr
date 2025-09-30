@@ -55,6 +55,7 @@ DaemonConfig::DaemonConfig(std::string config_file, std::string config_defaults_
   storePlates = getBoolean(&ini, &defaultIni, "daemon", "store_plates", false);
   markImagePlates = getBoolean(&ini, &defaultIni, "daemon", "mark_image_plate", false);
   alwaysSend = getBoolean(&ini, &defaultIni, "daemon", "alwaysSend", false);
+printf ("alwaysSend:%d\n", alwaysSend);
   removeImagePlatesFile = getBoolean(&ini, &defaultIni, "daemon", "remove_image_plate_file", true);
   imageFolder = getString(&ini, &defaultIni, "daemon", "store_plates_location", "/tmp/");
   onnx_file = getString(&ini, &defaultIni, "daemon", "onnx", "");
