@@ -26,6 +26,7 @@
 #endif
 
 #include <log4cplus/logger.h>
+#include <log4cplus/layout.h>    // Necessário para PatternLayout  CAP
 #include <log4cplus/loggingmacros.h>
 #include <log4cplus/configurator.h>
 #include <log4cplus/consoleappender.h>
@@ -301,32 +302,47 @@ int main(int argc, const char **argv)
     remove("/tmp/videoerr.txt");
   }
 
-  log4cplus::BasicConfigurator config;
-  config.configure();
+// CAP removido
+//  log4cplus::BasicConfigurator config;
+//  config.configure();
+// 1. Defina o padrão de formatação que você deseja
+  log4cplus::tstring pattern = LOG4CPLUS_TEXT("%d{%Y-%m-%d %H:%M:%S,%Q} [%-5p] %c - %m%n");
 
-  if (noDaemon == false)
-  {
+if (noDaemon == false)
+{
     // Fork off into a separate daemon
     daemon(0, 0);
 
+    // Cria o Appender para salvar em arquivo
     log4cplus::SharedAppenderPtr myAppender(new log4cplus::RollingFileAppender(logFile));
-    myAppender->setName("alprd_appender");
-    // Redirect std out to log file
+    myAppender->setName(LOG4CPLUS_TEXT("alprd_appender_file"));
+    
+    // 2. Cria o Layout com o padrão e o associa ao Appender
+    myAppender->setLayout(std::unique_ptr<log4cplus::Layout>(new log4cplus::PatternLayout(pattern)));
+
+    // Obtém o logger e adiciona o Appender configurado
+    logger = log4cplus::Logger::getInstance(LOG4CPLUS_TEXT("alprd"));
+    logger.addAppender(myAppender);
+    
+    // 3. A chamada de log agora é limpa, sem a data manual
+    LOG4CPLUS_INFO(logger, "Running OpenALPR daemon in daemon mode.");
+}
+else
+{
+    // Cria o Appender para o console
+    log4cplus::SharedAppenderPtr myAppender(new log4cplus::ConsoleAppender());
+    myAppender->setName(LOG4CPLUS_TEXT("alprd_appender_console"));
+    
+    // 2. Cria o Layout com o padrão e o associa ao Appender
+    myAppender->setLayout(std::unique_ptr<log4cplus::Layout>(new log4cplus::PatternLayout(pattern)));
+
+    // Obtém o logger e adiciona o Appender configurado
     logger = log4cplus::Logger::getInstance(LOG4CPLUS_TEXT("alprd"));
     logger.addAppender(myAppender);
 
-    LOG4CPLUS_INFO(logger, "Running OpenALPR daemon in daemon mode. " << currentDateTime());
-  }
-  else
-  {
-    // log4cplus::SharedAppenderPtr myAppender(new log4cplus::ConsoleAppender());
-    // myAppender->setName("alprd_appender");
-    //  Redirect std out to log file
-    logger = log4cplus::Logger::getInstance(LOG4CPLUS_TEXT("alprd"));
-    // logger.addAppender(myAppender);
-
-    LOG4CPLUS_INFO(logger, "Running OpenALPR daemon in the foreground. " << currentDateTime());
-  }
+    // 3. A chamada de log agora é limpa, sem a data manual
+    LOG4CPLUS_INFO(logger, "Running OpenALPR daemon in the foreground.");
+}
 
   LOG4CPLUS_INFO(logger, "Using: " << daemonConfigFile << " for daemon configuration");
 
