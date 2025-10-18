@@ -373,7 +373,6 @@ else
       tdata->config_file = openAlprConfigFile;
       tdata->mark_image_plate = daemon_config.markImagePlates;
       tdata->alwaysSend = daemon_config.alwaysSend;
-printf("alwaysSend:%d\n", tdata->alwaysSend);
       tdata->mark_image_plate_file = daemon_config.removeImagePlatesFile;
       tdata->output_images = daemon_config.storePlates;
       tdata->output_image_folder = daemon_config.imageFolder;

@@ -174,7 +174,6 @@ namespace alpr
            cMaxConf = pos->confidence;
         }
       }
-      printf("cMinConf:%d maxIdx:%d cMaxConf:%d\n", cMinConf, maxIdx, cMaxConf);
       // testa se tem +8 char na placa
       bool perde0=false;
       if (maxIdx >=7) 
